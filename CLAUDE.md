@@ -83,18 +83,32 @@ uv run ruff format .
 - 현재: 사설 GitHub repo (`sisobus/windy`).
 - 향후: v0.1이 완성되면 PyPI 공개 배포 및 repo public 전환 검토.
 
-## 다음 단계 (v0.1 구현 세션에서 다룰 것)
+## v0.1 진행 상황
 
-SPEC.md를 바탕으로 다음 순서로 구현:
+SPEC.md 기준으로 아래는 완료:
 
-1. `parser.py` — `.wnd` 텍스트 → `Grid` 객체 (sparse dict 기반).
-2. `ir.py` — `Grid`와 `IP` 상태 정의.
-3. `compiler.py` — 각 셀을 `Op`로 pre-decode (성능 + 디버깅 편의성).
-4. `vm.py` — 메인 실행 루프, 34개 opcode 전부 구현.
-5. `easter.py` 통합 — `vm` 시작 시 워터마크 배너 출력.
-6. `cli.py` — 스텁 해제, `run`/`debug`/`compile` 실제 구현.
-7. `debugger.py` — `rich` 기반 인터랙티브 스텝 실행.
-8. `wasm.py` — `.wat` 생성 → `wat2wasm` 호출해 `.wasm` 출력.
-9. 예제: `examples/hello.wnd` 검증, `examples/fib.wnd` 추가,
-   `examples/bf.wnd`(Windy로 작성한 Brainfuck 인터프리터) 추가 — TC의
-   구성적 증명.
+1. `parser.py` — `.wnd` 텍스트 → `Grid` (sparse dict 기반). ✅
+2. `ir.py` — `Grid`, `IP` 상태. ✅
+3. `compiler.py` — 셀 pre-decode + `p` 기반 cache 무효화. ✅
+4. `vm.py` — 메인 실행 루프, 34 opcode 전부. ✅
+5. `easter.py` 통합 — `run_source()` 진입 시 배너 출력. ✅
+6. `cli.py` — `run` / `debug` / `compile` 실제 구현. ✅
+7. `debugger.py` — `rich` 기반 인터랙티브 스텝 (step / continue / quit). ✅
+8. `wasm.py` — **AOT 출력 베이킹 방식** stopgap. Python VM으로 미리 실행해
+   stdout을 WASI `.wat` 모듈에 심어 `wat2wasm`으로 어셈블.
+   진짜 Windy-VM-in-WAT 컴파일러는 v0.2. ✅ (stopgap)
+9. 예제:
+   - `examples/hello.wnd` — 검증 완료. ✅
+   - `examples/hello_winds.wnd` — 2D 루프 라우팅으로 전체 문자열 출력 + 워터마크. ✅
+   - `examples/fib.wnd` — grid 메모리 기반 피보나치 10개 출력. ✅
+   - `examples/bf.wnd` — 본격 Brainfuck 인터프리터는 v0.2. v0.1은 placeholder. 🔜
+
+## v0.2 다음 단계
+
+- **`examples/bf.wnd` 본 구현**: BF 소스를 y=5에 두고, y=100의 테이프에
+  대해 g/p로 작동하는 디스패치 루프. 브래킷 매칭은 런타임 스캔.
+  SPEC §6의 "constructive demonstration" 약속을 v0.2에서 이행.
+- **`wasm.py` 진짜 AOT 컴파일러**: 현 stopgap은 미리 실행한 stdout을
+  베이킹한다. v0.2에서는 grid를 data section에 심고, 34 opcode 디스패처를
+  WAT로 직접 구현 (self-modification / `~` / stdin 포함).
+- **동시 IP 지원 (`t`)** — SPEC.md §10 참조.

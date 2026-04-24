@@ -1,0 +1,13 @@
+@
+   Placeholder for the Brainfuck interpreter promised in SPEC §6.
+   Halts immediately; sisobus watermark still fires the banner.
+
+   Design (deferred to v0.2 — see SPEC.md "Reserved for Future Versions"):
+     - BF source stored at y = 5; BF tape at y = 100 (default cell 0x20
+       mapped to 0 on read).
+     - PC at (0, 20); PTR at (1, 20).
+     - Main loop on y = 0: load BF[PC], dispatch by codepoint (+ - < >
+       . , [ ]), update state, loop back.
+     - Bracket matching is a runtime scan with a depth counter — no
+       pre-pass. Slower but keeps the grid compact; adequate for a TC
+       witness.

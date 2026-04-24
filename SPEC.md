@@ -199,7 +199,10 @@ Windy is Turing-complete. A sketch:
    control flow.
 
 A constructive demonstration — a Brainfuck interpreter written in Windy —
-is planned as `examples/bf.wnd` and will land with the VM implementation.
+is planned as `examples/bf.wnd`. v0.1 ships a placeholder at that path
+that only halts + fires the watermark banner; the real interpreter is
+tracked under §10 for v0.2. Until it lands, the argument above is the
+witness of record: it does not depend on the example existing.
 
 ---
 
@@ -266,6 +269,12 @@ The following features are *not* part of v0.1. They are listed so that v0.1
 programs remain forward-compatible when they ship:
 
 - **Threads / concurrent IPs** (Befunge-98 `t`) — planned for v0.2.
+- **Brainfuck interpreter example** (`examples/bf.wnd`, §6) — placeholder
+  in v0.1, full interpreter lands in v0.2.
+- **Native WebAssembly AOT backend.** v0.1 ships an *output-baking*
+  backend (`wasm.py`): the program is executed once by the Python VM and
+  its stdout is embedded in a WASI module. A full Windy-VM-in-WAT
+  compiler is v0.2.
 - **Fingerprints / language extensions** — v0.3+.
 - **Tracing JIT for hot loops** — v0.3+.
 - **Standard-library overlays** (pre-written grid regions loaded by name) —

@@ -1,18 +1,24 @@
 """Windy command-line interface.
 
 Exposes ``windy run``, ``windy compile``, ``windy debug``, ``windy version``.
-All subcommands except ``version`` are stubs in v0.1-scaffold; implementations
-land in a follow-up session.
+
+In v0.1, ``run`` is the real interpreter. ``debug`` and ``compile`` are
+still stubs — they land in the following milestones (see CLAUDE.md
+"다음 단계" items 7 and 8).
 """
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import typer
 from rich.console import Console
 
 from windy import __version__
+from windy.debugger import debug_source
+from windy.vm import run_source
+from windy.wasm import WasmCompileError, compile_to_wasm
 
 app = typer.Typer(
     name="windy",
@@ -32,18 +38,36 @@ def run(
     max_steps: int | None = typer.Option(None, help="Halt after N executed steps."),
 ) -> None:
     """Run a Windy program on the bytecode VM."""
-    _stderr.print("[yellow]run: not yet implemented[/] — see SPEC.md for v0.1 design.")
-    raise typer.Exit(code=2)
+    source = file.read_text(encoding="utf-8")
+    exit_code = run_source(
+        source,
+        seed=seed,
+        max_steps=max_steps,
+        stdin=sys.stdin,
+        stdout=sys.stdout,
+        stderr=sys.stderr,
+    )
+    sys.stdout.flush()
+    raise typer.Exit(exit_code)
 
 
 @app.command("compile")
 def compile_(
     file: Path = typer.Argument(..., exists=True, dir_okay=False, readable=True),
-    output: Path = typer.Option(..., "-o", "--output", help="Output .wasm path."),
+    output: Path = typer.Option(..., "-o", "--output", help="Output .wasm or .wat path."),
+    seed: int | None = typer.Option(None, help="Seed for ~ during precomputation."),
 ) -> None:
-    """Compile a Windy program to WebAssembly."""
-    _stderr.print("[yellow]compile: not yet implemented[/]")
-    raise typer.Exit(code=2)
+    """Compile a Windy program to WebAssembly.
+
+    v0.1 uses ahead-of-time output baking — see src/windy/wasm.py for scope.
+    """
+    source = file.read_text(encoding="utf-8")
+    try:
+        written = compile_to_wasm(source, output, seed=seed)
+    except WasmCompileError as exc:
+        _stderr.print(f"[red]compile failed:[/] {exc}")
+        raise typer.Exit(code=1) from None
+    _stderr.print(f"wrote [green]{written}[/]")
 
 
 @app.command()
@@ -51,8 +75,9 @@ def debug(
     file: Path = typer.Argument(..., exists=True, dir_okay=False, readable=True),
 ) -> None:
     """Step through a Windy program interactively."""
-    _stderr.print("[yellow]debug: not yet implemented[/]")
-    raise typer.Exit(code=2)
+    source = file.read_text(encoding="utf-8")
+    exit_code = debug_source(source)
+    raise typer.Exit(exit_code)
 
 
 @app.command()
