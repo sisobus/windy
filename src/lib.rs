@@ -1,16 +1,16 @@
 //! Windy — a 2D esoteric programming language.
 //!
-//! This crate is the v0.2 reference implementation. The Python package
-//! under `../src/windy/` remains a conformance reference: both
-//! implementations must produce byte-identical stdout for the same
-//! `(source, seed, stdin)` tuple (SPEC.md §11 + §10).
+//! The v0.2 reference implementation. Same crate backs the native CLI
+//! today and (in v0.3) the browser playground via `wasm32` target.
 
+pub mod debugger;
 pub mod easter;
 pub mod grid;
 pub mod opcodes;
 pub mod parser;
 pub mod vm;
 
+pub use debugger::debug_source;
 pub use easter::{detect, BANNER, SIGNATURE};
 pub use grid::{Grid, Ip, SPACE};
 pub use opcodes::{decode_cell, Op};

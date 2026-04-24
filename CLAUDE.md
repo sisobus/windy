@@ -90,17 +90,18 @@ cargo test --test conformance       # conformance만
 
 ## v0.2 진행 상황
 
-- [x] Rust 크레이트 스캐폴드, 34 opcode VM, clap CLI (`run` / `version`).
+- [x] Rust 크레이트 스캐폴드, 34 opcode VM, clap CLI.
 - [x] `conformance/cases.json` + Rust 하네스 — 26 케이스.
 - [x] Python 구현 제거, Rust를 루트로 승격.
-- [ ] **`debug` 서브커맨드 포팅** — 터미널 기반 스텝 실행 (그리드 뷰포트 +
-      IP 커서 + 스택 + stdout 캡처). ANSI 이스케이프만으로 구현, 무거운 TUI
-      크레이트 없이.
-- [ ] **`examples/bf.wnd` 본 구현** — BF 소스는 y=5, 테이프는 y=100, PC/PTR은
-      전용 변수 셀. 런타임 브래킷 매칭(깊이 카운터 + 전/후방 스캔).
-      SPEC §6 "constructive demonstration" 이행.
+- [x] `debug` 서브커맨드 — 터미널 기반 스텝 실행 (ANSI 이스케이프 + Unicode
+      박스 그리기만 사용, TUI 크레이트 없음).
 
-## v0.3 로드맵 — 브라우저 플레이그라운드
+**bf.wnd 본 구현은 v0.3으로 이동**. BF 인터프리터를 Windy로 쓰는 건 순수
+그리드 설계 + 디스패치 arm 8개 + 브래킷 매칭으로 500셀급 작업이라 독립
+세션이 필요하다. v0.1/v0.2의 placeholder는 그대로 유지되고, 본 구현은
+브라우저 플레이그라운드와 같은 사이클(v0.3)에 땅.
+
+## v0.3 로드맵 — 브라우저 플레이그라운드 + bf.wnd
 
 - `windy` 크레이트를 `wasm32-unknown-unknown` (또는 `wasm32-wasip1`)으로
   빌드. `wasm-bindgen`으로 JS에 `run(source, stdin) -> {stdout, stderr,
@@ -108,6 +109,10 @@ cargo test --test conformance       # conformance만
 - `web/` 정적 HTML + JS 플레이그라운드. 에디터(`<textarea>` 또는 Monaco),
   Run/Step, stdout 패널, 그리드 미니맵. 서버 없음.
 - 배포는 GitHub Pages 정적 호스팅.
+- **`examples/bf.wnd` 본 구현**: BF 소스는 y=200, 테이프는 y=100, PC/PTR은
+  전용 변수 셀. 시작 시 브래킷 사전 매칭(스택 기반) → y=300에 매칭
+  테이블 기록 → 메인 루프는 평탄한 디스패치. SPEC §6 "constructive
+  demonstration" 이행.
 
 ## v0.4+
 

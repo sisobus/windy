@@ -1,20 +1,22 @@
-//! Windy CLI — `windy run` / `windy version`.
+//! Windy CLI — `windy run` / `windy debug` / `windy version`.
 //!
-//! The `debug` subcommand (rich-style stepper) and `compile` subcommand
-//! are deliberately absent in v0.2 early cut: `debug` lands alongside a
-//! terminal UI port, and `compile` retires with the Python
-//! output-baking stopgap (see SPEC §10 — per-program AOT is obsolete
-//! once the interpreter itself ships as WebAssembly in v0.3).
+//! The v0.1 `compile` subcommand (Python output-baking stopgap) is
+//! retired — per-program AOT becomes obsolete once the interpreter
+//! itself ships as WebAssembly in v0.3 (SPEC §10).
 
 use clap::{Parser, Subcommand};
 use std::fs;
 use std::io;
 use std::path::PathBuf;
 use std::process::ExitCode as ProcessExit;
-use windy::{run_source, RunOptions, VERSION};
+use windy::{debug_source, run_source, RunOptions, VERSION};
 
 #[derive(Parser)]
-#[command(name = "windy", version = VERSION, about = "Windy — 2D esolang where code flows like wind")]
+#[command(
+    name = "windy",
+    version = VERSION,
+    about = "Windy — 2D esolang where code flows like wind"
+)]
 struct Cli {
     #[command(subcommand)]
     cmd: Command,
@@ -32,6 +34,11 @@ enum Command {
         /// Halt after N executed steps (exit 124 if exceeded).
         #[arg(long = "max-steps")]
         max_steps: Option<u64>,
+    },
+    /// Step through a Windy program interactively.
+    Debug {
+        /// Path to the .wnd source file.
+        file: PathBuf,
     },
     /// Print the Windy version.
     Version,
@@ -66,6 +73,18 @@ fn main() -> ProcessExit {
                 },
             );
             ProcessExit::from(code.code() as u8)
+        }
+        Command::Debug { file } => {
+            let source = match fs::read_to_string(&file) {
+                Ok(s) => s,
+                Err(e) => {
+                    eprintln!("windy: cannot read {}: {}", file.display(), e);
+                    return ProcessExit::from(2);
+                }
+            };
+            let mut stdin = io::stdin().lock();
+            let code = debug_source(&source, &mut stdin);
+            ProcessExit::from(code.clamp(0, 255) as u8)
         }
     }
 }

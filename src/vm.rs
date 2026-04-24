@@ -4,6 +4,11 @@
 //! (§3.3, §7). Division and modulo by zero push 0 (§7). `GRID_PUT`
 //! writes re-take effect on the next IP visit because cell decoding is
 //! on-demand (no external cache to invalidate).
+//!
+//! The VM does **not** own its I/O streams — `step` / `run` accept them
+//! as `&mut dyn` parameters. This lets external drivers (the interactive
+//! debugger in `debugger.rs`, most obviously) inspect the captured stdout
+//! buffer between steps without fighting the borrow checker.
 
 use crate::easter::{detect, BANNER};
 use crate::grid::{Grid, Ip, SPACE};
@@ -49,8 +54,8 @@ impl ExitCode {
     }
 }
 
-/// Runtime configuration. Streams are borrowed mutably so callers retain
-/// the buffers (e.g. tests inspect `stdout` after the call returns).
+/// Top-level runtime configuration used by `run_source`. Stream refs are
+/// borrowed so callers retain ownership of the underlying buffers.
 pub struct RunOptions<'a> {
     pub seed: Option<u64>,
     pub max_steps: Option<u64>,
@@ -59,24 +64,21 @@ pub struct RunOptions<'a> {
     pub stderr: &'a mut dyn Write,
 }
 
-pub struct Vm<'a> {
-    grid: Grid,
-    ip: Ip,
-    stack: Vec<BigInt>,
-    strmode: bool,
-    halted: bool,
-    steps: u64,
-    max_steps: Option<u64>,
+pub struct Vm {
+    pub grid: Grid,
+    pub ip: Ip,
+    pub stack: Vec<BigInt>,
+    pub strmode: bool,
+    pub halted: bool,
+    pub steps: u64,
+    pub max_steps: Option<u64>,
     rng: ChaCha8Rng,
-    stdin: &'a mut dyn Read,
-    stdout: &'a mut dyn Write,
-    stderr: &'a mut dyn Write,
     warned: HashSet<u32>,
 }
 
-impl<'a> Vm<'a> {
-    pub fn new(grid: Grid, opts: RunOptions<'a>) -> Self {
-        let rng = match opts.seed {
+impl Vm {
+    pub fn new(grid: Grid, seed: Option<u64>, max_steps: Option<u64>) -> Self {
+        let rng = match seed {
             Some(s) => ChaCha8Rng::seed_from_u64(s),
             None => ChaCha8Rng::from_entropy(),
         };
@@ -87,26 +89,48 @@ impl<'a> Vm<'a> {
             strmode: false,
             halted: false,
             steps: 0,
-            max_steps: opts.max_steps,
+            max_steps,
             rng,
-            stdin: opts.stdin,
-            stdout: opts.stdout,
-            stderr: opts.stderr,
             warned: HashSet::new(),
         }
     }
 
-    pub fn run(&mut self) -> ExitCode {
+    pub fn run(
+        &mut self,
+        stdin: &mut dyn Read,
+        stdout: &mut dyn Write,
+        stderr: &mut dyn Write,
+    ) -> ExitCode {
         while !self.halted {
             if let Some(cap) = self.max_steps {
                 if self.steps >= cap {
                     return ExitCode::MaxSteps;
                 }
             }
-            self.step();
+            self.step(stdin, stdout, stderr);
             self.steps += 1;
         }
         ExitCode::Ok
+    }
+
+    pub fn step(
+        &mut self,
+        stdin: &mut dyn Read,
+        stdout: &mut dyn Write,
+        stderr: &mut dyn Write,
+    ) {
+        let cell = self.grid.get(self.ip.x, self.ip.y);
+        if self.strmode {
+            if cell.to_u32() == Some(STR_QUOTE) {
+                self.strmode = false;
+            } else {
+                self.push(cell.clone());
+            }
+        } else {
+            let (op, operand) = decode_cell(&cell);
+            self.execute(op, operand, &cell, stdin, stdout, stderr);
+        }
+        self.ip.advance();
     }
 
     fn pop(&mut self) -> BigInt {
@@ -117,23 +141,15 @@ impl<'a> Vm<'a> {
         self.stack.push(v);
     }
 
-    pub fn step(&mut self) {
-        let cell = self.grid.get(self.ip.x, self.ip.y);
-        if self.strmode {
-            let as_u32 = cell.to_u32();
-            if as_u32 == Some(STR_QUOTE) {
-                self.strmode = false;
-            } else {
-                self.push(cell.clone());
-            }
-        } else {
-            let (op, operand) = decode_cell(&cell);
-            self.execute(op, operand, &cell);
-        }
-        self.ip.advance();
-    }
-
-    fn execute(&mut self, op: Op, operand: u32, cell: &BigInt) {
+    fn execute(
+        &mut self,
+        op: Op,
+        operand: u32,
+        cell: &BigInt,
+        stdin: &mut dyn Read,
+        stdout: &mut dyn Write,
+        stderr: &mut dyn Write,
+    ) {
         match op {
             Op::Nop => {}
             Op::Halt => self.halted = true,
@@ -212,22 +228,22 @@ impl<'a> Vm<'a> {
             }
             Op::PutNum => {
                 let a = self.pop();
-                let _ = write!(self.stdout, "{} ", a);
+                let _ = write!(stdout, "{} ", a);
             }
             Op::PutChr => {
                 let a = self.pop();
                 if let Some(cp) = a.to_u32() {
                     if let Some(c) = char::from_u32(cp) {
-                        let _ = write!(self.stdout, "{}", c);
+                        let _ = write!(stdout, "{}", c);
                     }
                 }
             }
             Op::GetNum => {
-                let v = self.read_num_input().unwrap_or_else(|| BigInt::from(-1));
+                let v = read_num_input(stdin).unwrap_or_else(|| BigInt::from(-1));
                 self.push(v);
             }
             Op::GetChr => {
-                let v = match read_utf8_char(self.stdin) {
+                let v = match read_utf8_char(stdin) {
                     Ok(Some(c)) => BigInt::from(c as u32),
                     _ => BigInt::from(-1),
                 };
@@ -253,11 +269,11 @@ impl<'a> Vm<'a> {
                     self.grid.put(xi, yi, v);
                 }
             }
-            Op::Unknown => self.warn_unknown(cell),
+            Op::Unknown => self.warn_unknown(cell, stderr),
         }
     }
 
-    fn warn_unknown(&mut self, cell: &BigInt) {
+    fn warn_unknown(&mut self, cell: &BigInt, stderr: &mut dyn Write) {
         let cp = match cell.to_u32() {
             Some(v) => v,
             None => return,
@@ -267,31 +283,10 @@ impl<'a> Vm<'a> {
         }
         let ch = char::from_u32(cp).unwrap_or('?');
         let _ = writeln!(
-            self.stderr,
+            stderr,
             "windy: warning: unknown glyph {:?} (U+{:04X}) treated as NOP",
             ch, cp
         );
-    }
-
-    fn read_num_input(&mut self) -> Option<BigInt> {
-        // Skip leading whitespace.
-        let first = loop {
-            match read_utf8_char(self.stdin).ok()? {
-                None => return None,
-                Some(c) if c.is_whitespace() => continue,
-                Some(c) => break c,
-            }
-        };
-        let mut s = String::new();
-        s.push(first);
-        loop {
-            match read_utf8_char(self.stdin).ok()? {
-                None => break,
-                Some(c) if c.is_whitespace() => break,
-                Some(c) => s.push(c),
-            }
-        }
-        s.parse::<BigInt>().ok()
     }
 }
 
@@ -301,12 +296,32 @@ pub fn run_source(source: &str, opts: RunOptions) -> ExitCode {
     if detect(&scan_text) {
         let _ = writeln!(opts.stderr, "{}", BANNER);
     }
-    let mut vm = Vm::new(grid, opts);
-    vm.run()
+    let mut vm = Vm::new(grid, opts.seed, opts.max_steps);
+    vm.run(opts.stdin, opts.stdout, opts.stderr)
+}
+
+fn read_num_input(stdin: &mut dyn Read) -> Option<BigInt> {
+    let first = loop {
+        match read_utf8_char(stdin).ok()? {
+            None => return None,
+            Some(c) if c.is_whitespace() => continue,
+            Some(c) => break c,
+        }
+    };
+    let mut s = String::new();
+    s.push(first);
+    loop {
+        match read_utf8_char(stdin).ok()? {
+            None => break,
+            Some(c) if c.is_whitespace() => break,
+            Some(c) => s.push(c),
+        }
+    }
+    s.parse::<BigInt>().ok()
 }
 
 /// Read one UTF-8 char from `reader`. Returns `Ok(None)` on EOF.
-fn read_utf8_char(reader: &mut dyn Read) -> std::io::Result<Option<char>> {
+pub(crate) fn read_utf8_char(reader: &mut dyn Read) -> std::io::Result<Option<char>> {
     let mut buf = [0u8; 4];
     let n = reader.read(&mut buf[..1])?;
     if n == 0 {
@@ -316,7 +331,6 @@ fn read_utf8_char(reader: &mut dyn Read) -> std::io::Result<Option<char>> {
     let expected = if first < 0x80 {
         1
     } else if first < 0xC0 {
-        // Stray continuation byte; treat as replacement character.
         return Ok(Some(char::REPLACEMENT_CHARACTER));
     } else if first < 0xE0 {
         2
@@ -388,7 +402,6 @@ mod tests {
 
     #[test]
     fn sub_argument_order() {
-        // SPEC §4.1: `3 4 -` pushes a-b = -1.
         let (_, out, _) = run("34-.@");
         assert_eq!(out, "-1 ");
     }
@@ -424,7 +437,6 @@ mod tests {
     #[test]
     fn string_mode_pushes_codepoints() {
         assert_eq!(run("\"A\",@").1, "A");
-        // '+' inside string mode is codepoint 43, not ADD.
         assert_eq!(run("\"+\".@").1, "43 ");
     }
 
@@ -443,7 +455,6 @@ mod tests {
 
     #[test]
     fn grid_put_self_modifies_for_halt() {
-        // 88* = 64 = '@'. Write at (7,0), then IP reaches overwritten cell and halts.
         let (code, out, err) = run("88*70p X");
         assert_eq!(code, ExitCode::Ok);
         assert_eq!(out, "");

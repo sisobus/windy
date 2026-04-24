@@ -275,7 +275,11 @@ programs remain forward-compatible when they ship:
   `conformance/cases.json`, a language-neutral file that every future
   implementation MUST pass byte-for-byte on stdout + exit code.
 - **Brainfuck interpreter example** (`examples/bf.wnd`, §6) — placeholder
-  in v0.1; full interpreter lands inside v0.2 alongside the Rust VM.
+  in v0.1 / v0.2; full interpreter lands in v0.3 alongside the browser
+  playground. Design sketch lives in the placeholder file's comments:
+  tape row at y=100, BF source row at y=200, PC/PTR in dedicated var
+  cells, startup pass pre-matches brackets into a lookup row so the main
+  loop stays flat.
 - **Serverless browser playground (v0.3).** The Rust VM is compiled to
   `wasm32-unknown-unknown` (or `wasm32-wasip1`) and loaded by a static
   HTML page under `web/`. No backend server is required; the browser
