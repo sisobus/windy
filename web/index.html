@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Windy Playground</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <header>
+    <h1>Windy</h1>
+    <p class="tagline">A 2D esoteric language where code flows like wind.
+      <a href="https://github.com/sisobus/windy" target="_blank">GitHub</a>
+      · <a href="https://github.com/sisobus/windy/blob/main/SPEC.md" target="_blank">SPEC</a>
+    </p>
+  </header>
+
+  <div class="toolbar">
+    <label>Example:
+      <select id="example-picker">
+        <option value="hello">hello.wnd</option>
+        <option value="hello_winds">hello_winds.wnd</option>
+        <option value="fib">fib.wnd</option>
+        <option value="blank">(empty)</option>
+      </select>
+    </label>
+    <label>Seed: <input id="seed" type="number" placeholder="(random)" min="0"></label>
+    <label>Max steps: <input id="max-steps" type="number" placeholder="(unbounded)" min="1"></label>
+    <button id="run">Run</button>
+    <span id="version-badge"></span>
+  </div>
+
+  <main>
+    <section class="editor-section">
+      <label for="source">Source</label>
+      <textarea id="source" spellcheck="false"></textarea>
+
+      <label for="stdin">stdin <span class="hint">(consumed by <code>?</code> / <code>&amp;</code>)</span></label>
+      <textarea id="stdin" rows="2" spellcheck="false"></textarea>
+    </section>
+
+    <section class="output-section">
+      <div class="panel">
+        <div class="panel-head">stdout <span id="exit-code"></span></div>
+        <pre id="stdout"></pre>
+      </div>
+      <div class="panel">
+        <div class="panel-head">stderr</div>
+        <pre id="stderr"></pre>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <span>Interpreter shipped as WebAssembly from the Rust <code>windy</code> crate —
+      no server, nothing leaves your browser.</span>
+  </footer>
+
+  <script type="module" src="./main.js"></script>
+</body>
+</html>

@@ -9,6 +9,9 @@ license = "MIT"
 [lib]
 name = "windy"
 path = "src/lib.rs"
+# `cdylib` is required for wasm-bindgen to produce a browser-loadable module.
+# `rlib` keeps the native CLI binary + integration tests working.
+crate-type = ["cdylib", "rlib"]
 
 [[bin]]
 name = "windy"
@@ -22,6 +25,27 @@ rand = "0.8"
 rand_chacha = "0.3"
 clap = { version = "4", features = ["derive"] }
 
+# wasm32 target needs the JS-backed getrandom so `ChaCha8Rng::from_entropy()`
+# works in the browser, and wasm-bindgen for the JS API wrapper.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2"
+getrandom = { version = "0.2", features = ["js"] }
+
 [dev-dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+
+# Optimize wasm payload size when built via `wasm-pack build --release`.
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true
+
+# Disable wasm-opt — the bundled binary is older than the bulk-memory
+# opcodes rustc now emits by default, and runs `wasm-opt` as a validation
+# step even when there's no optimization to do. rustc's own `-O` already
+# covers the low-hanging optimizations.
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false
+

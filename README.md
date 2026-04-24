@@ -61,6 +61,19 @@ windy version
 - `examples/hello_winds.wnd` — 2D loop routing with the sisobus watermark.
 - `examples/fib.wnd` — first ten Fibonacci numbers, state stored via `g` / `p`.
 
+## Browser playground
+
+The Rust VM also compiles to WebAssembly and loads directly in a
+browser. No backend — the `.wnd` source is interpreted in the page.
+
+```bash
+wasm-pack build --target web --release --out-dir web/pkg
+python3 -m http.server -d web 8000
+# open http://localhost:8000
+```
+
+See [`web/README.md`](web/README.md) for details and deployment notes.
+
 ## Documentation
 
 - **[SPEC.md](SPEC.md)** — the complete language specification. Source of

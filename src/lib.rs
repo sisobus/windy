@@ -10,6 +10,9 @@ pub mod opcodes;
 pub mod parser;
 pub mod vm;
 
+#[cfg(target_arch = "wasm32")]
+pub mod wasm_api;
+
 pub use debugger::debug_source;
 pub use easter::{detect, BANNER, SIGNATURE};
 pub use grid::{Grid, Ip, SPACE};

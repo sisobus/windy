@@ -95,14 +95,19 @@ cargo test --test conformance       # conformance만
 - [x] `debug` 서브커맨드 — 터미널 기반 스텝 실행 (ANSI 이스케이프 + Unicode
       박스 그리기만 사용, TUI 크레이트 없음).
 
-## v0.3 로드맵 — 브라우저 플레이그라운드
+## v0.3 진행 상황 — 브라우저 플레이그라운드
 
-- `windy` 크레이트를 `wasm32-unknown-unknown` (또는 `wasm32-wasip1`)으로
-  빌드. `wasm-bindgen`으로 JS에 `run(source, stdin) -> {stdout, stderr,
-  exit}` 식의 얇은 API 노출.
-- `web/` 정적 HTML + JS 플레이그라운드. 에디터(`<textarea>` 또는 Monaco),
-  Run/Step, stdout 패널, 그리드 미니맵. 서버 없음.
-- 배포는 GitHub Pages 정적 호스팅.
+- [x] `windy` 크레이트를 `wasm32-unknown-unknown`으로 빌드. `src/wasm_api.rs`
+      가 `#[cfg(target_arch = "wasm32")]`로 컴파일되며 `wasm-bindgen`으로
+      `run(source, stdin, seed?, max_steps?) -> RunResult` API 노출.
+      `crate-type = ["cdylib", "rlib"]` 설정으로 네이티브 CLI는 그대로 유지.
+- [x] `web/` 정적 플레이그라운드. HTML + CSS + JS. 에디터(`<textarea>`),
+      예제 picker, seed / max-steps 옵션, stdout / stderr 패널, 다크 모드.
+- [x] `wasm-pack build --target web --release --out-dir web/pkg`로 빌드.
+      `web/`은 `python3 -m http.server -d web`로 그대로 서빙되고,
+      GitHub Pages에 복사하면 그대로 배포.
+- [ ] GitHub Actions: push → wasm-pack build → gh-pages branch 자동 배포.
+- [ ] 그리드 미니맵 / 스텝 실행을 브라우저에서도 — 현재는 stdout만.
 
 ## v0.4+
 

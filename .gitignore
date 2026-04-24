@@ -1,6 +1,10 @@
 # Rust build artifacts
 target/
 
+# wasm-pack output
+web/pkg/
+pkg/
+
 # Editor / OS
 .vscode/
 .idea/
