@@ -17,6 +17,9 @@ dist/
 *.wasm
 *.wat
 
+# Rust
+rust/target/
+
 # Editor / OS
 .vscode/
 .idea/

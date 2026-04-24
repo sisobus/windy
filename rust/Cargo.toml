@@ -1,0 +1,27 @@
+[package]
+name = "windy"
+version = "0.2.0-alpha"
+edition = "2021"
+description = "Windy — a 2D esoteric programming language where code flows like wind."
+repository = "https://github.com/sisobus/windy"
+license = "MIT"
+
+[lib]
+name = "windy"
+path = "src/lib.rs"
+
+[[bin]]
+name = "windy"
+path = "src/main.rs"
+
+[dependencies]
+num-bigint = "0.4"
+num-traits = "0.2"
+num-integer = "0.1"
+rand = "0.8"
+rand_chacha = "0.3"
+clap = { version = "4", features = ["derive"] }
+
+[dev-dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

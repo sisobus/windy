@@ -1,0 +1,144 @@
+{
+  "_comment": "Shared conformance goldens. Both the Python and Rust implementations MUST produce the expected stdout byte-for-byte, and must exit with expected_exit (default 0). Fields: source OR source_file (path from repo root), seed, stdin, max_steps, expected_stdout, expected_stderr_contains (list; every entry must appear somewhere in stderr), expected_exit (0 or 124).",
+  "cases": [
+    {
+      "name": "halt",
+      "source": "@",
+      "expected_stdout": ""
+    },
+    {
+      "name": "hello_inline",
+      "source": "\"!dlroW ,olleH\",,,,,,,,,,,,,@",
+      "expected_stdout": "Hello, World!"
+    },
+    {
+      "name": "put_num_trailing_space",
+      "source": "34+.@",
+      "expected_stdout": "7 "
+    },
+    {
+      "name": "sub_argument_order",
+      "source": "34-.@",
+      "expected_stdout": "-1 "
+    },
+    {
+      "name": "div_by_zero",
+      "source": "50/.@",
+      "expected_stdout": "0 "
+    },
+    {
+      "name": "mod_by_zero",
+      "source": "50%.@",
+      "expected_stdout": "0 "
+    },
+    {
+      "name": "stack_underflow",
+      "source": ".@",
+      "expected_stdout": "0 "
+    },
+    {
+      "name": "gt_true",
+      "source": "53`.@",
+      "expected_stdout": "1 "
+    },
+    {
+      "name": "gt_false",
+      "source": "35`.@",
+      "expected_stdout": "0 "
+    },
+    {
+      "name": "dup",
+      "source": "7:..@",
+      "expected_stdout": "7 7 "
+    },
+    {
+      "name": "swap",
+      "source": "12\\..@",
+      "expected_stdout": "1 2 "
+    },
+    {
+      "name": "drop",
+      "source": "12$.@",
+      "expected_stdout": "1 "
+    },
+    {
+      "name": "trampoline",
+      "source": "#@5.@",
+      "expected_stdout": "5 "
+    },
+    {
+      "name": "string_mode_char",
+      "source": "\"A\",@",
+      "expected_stdout": "A"
+    },
+    {
+      "name": "string_mode_plus_is_codepoint",
+      "source": "\"+\".@",
+      "expected_stdout": "43 "
+    },
+    {
+      "name": "grid_put_then_get",
+      "source": "\"!\"55p55g,@",
+      "expected_stdout": "!"
+    },
+    {
+      "name": "get_chr_eof",
+      "source": "?.@",
+      "stdin": "",
+      "expected_stdout": "-1 "
+    },
+    {
+      "name": "get_chr_reads_one",
+      "source": "?.@",
+      "stdin": "A",
+      "expected_stdout": "65 "
+    },
+    {
+      "name": "get_num_reads_integer",
+      "source": "&.@",
+      "stdin": "42 ",
+      "expected_stdout": "42 "
+    },
+    {
+      "name": "get_num_eof",
+      "source": "&.@",
+      "stdin": "",
+      "expected_stdout": "-1 "
+    },
+    {
+      "name": "max_steps_abort",
+      "source": "    ",
+      "max_steps": 3,
+      "expected_exit": 124,
+      "expected_stdout": ""
+    },
+    {
+      "name": "sisobus_banner_fires",
+      "source": "\"sisobus\"@",
+      "expected_stdout": "",
+      "expected_stderr_contains": ["Kim Sangkeun", "╔", "╚"]
+    },
+    {
+      "name": "hello_file",
+      "source_file": "examples/hello.wnd",
+      "expected_stdout": "Hello, World!"
+    },
+    {
+      "name": "hello_winds_file",
+      "source_file": "examples/hello_winds.wnd",
+      "expected_stdout": "Hello, World!",
+      "expected_stderr_contains": ["Kim Sangkeun"]
+    },
+    {
+      "name": "fib_file",
+      "source_file": "examples/fib.wnd",
+      "expected_stdout": "0 1 1 2 3 5 8 13 21 34 "
+    },
+    {
+      "name": "bf_placeholder_file",
+      "source_file": "examples/bf.wnd",
+      "expected_stdout": "",
+      "expected_stderr_contains": ["Kim Sangkeun"]
+    }
+  ]
+}
