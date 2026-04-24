@@ -95,12 +95,7 @@ cargo test --test conformance       # conformance만
 - [x] `debug` 서브커맨드 — 터미널 기반 스텝 실행 (ANSI 이스케이프 + Unicode
       박스 그리기만 사용, TUI 크레이트 없음).
 
-**bf.wnd는 v0.3으로 이동**. BF 인터프리터를 Windy로 쓰는 건 순수 그리드
-설계 + 디스패치 arm 8개 + 브래킷 매칭으로 500셀급 작업이라 독립 세션이
-필요하다. placeholder는 v0.2에서 삭제 — 의미 없는 파일을 repo에 두지 않는다.
-본 구현은 브라우저 플레이그라운드와 같은 사이클(v0.3)에 땅.
-
-## v0.3 로드맵 — 브라우저 플레이그라운드 + bf.wnd
+## v0.3 로드맵 — 브라우저 플레이그라운드
 
 - `windy` 크레이트를 `wasm32-unknown-unknown` (또는 `wasm32-wasip1`)으로
   빌드. `wasm-bindgen`으로 JS에 `run(source, stdin) -> {stdout, stderr,
@@ -108,10 +103,6 @@ cargo test --test conformance       # conformance만
 - `web/` 정적 HTML + JS 플레이그라운드. 에디터(`<textarea>` 또는 Monaco),
   Run/Step, stdout 패널, 그리드 미니맵. 서버 없음.
 - 배포는 GitHub Pages 정적 호스팅.
-- **`examples/bf.wnd` 본 구현**: BF 소스는 y=200, 테이프는 y=100, PC/PTR은
-  전용 변수 셀. 시작 시 브래킷 사전 매칭(스택 기반) → y=300에 매칭
-  테이블 기록 → 메인 루프는 평탄한 디스패치. SPEC §6 "constructive
-  demonstration" 이행.
 
 ## v0.4+
 

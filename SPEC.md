@@ -198,10 +198,6 @@ Windy is Turing-complete. A sketch:
    execution paths at runtime. This is strictly stronger than static
    control flow.
 
-A constructive demonstration — a Brainfuck interpreter written in Windy —
-is planned for v0.3 and tracked under §10. Until it lands, the argument
-above is the witness of record.
-
 ---
 
 ## 7. Semantics of Edge Cases
@@ -272,11 +268,6 @@ programs remain forward-compatible when they ship:
   v0.1 Python implementation has been retired; its goldens live on in
   `conformance/cases.json`, a language-neutral file that every future
   implementation MUST pass byte-for-byte on stdout + exit code.
-- **Brainfuck interpreter example** (`examples/bf.wnd`, §6) — full
-  interpreter in v0.3 alongside the browser playground. Design sketch:
-  tape row at y=100, BF source row at y=200, PC/PTR in dedicated var
-  cells, startup pass pre-matches brackets into a lookup row so the
-  main loop stays a flat dispatch.
 - **Serverless browser playground (v0.3).** The Rust VM is compiled to
   `wasm32-unknown-unknown` (or `wasm32-wasip1`) and loaded by a static
   HTML page under `web/`. No backend server is required; the browser
