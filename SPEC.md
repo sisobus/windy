@@ -268,15 +268,14 @@ Python implementation uses the names below):
 The following features are *not* part of v0.1. They are listed so that v0.1
 programs remain forward-compatible when they ship:
 
-- **Rust-based reference VM (v0.2).** The interpreter is reimplemented in
-  Rust to collapse the language/host split. A single `windy-core` crate
-  powers both the native CLI (via `cargo install`) and the browser
-  playground (via `wasm32` target). The Python implementation ships on
-  as a *conformance reference* — both implementations MUST produce
-  byte-identical stdout for the same source, seed, and stdin, and this
-  is enforced by shared golden tests.
+- **Rust reference VM (v0.2).** The interpreter lives in a single Rust
+  crate at the repo root. That same crate powers the native CLI today
+  and (in v0.3) the browser playground via the `wasm32` target. The
+  v0.1 Python implementation has been retired; its goldens live on in
+  `conformance/cases.json`, a language-neutral file that every future
+  implementation MUST pass byte-for-byte on stdout + exit code.
 - **Brainfuck interpreter example** (`examples/bf.wnd`, §6) — placeholder
-  in v0.1, full interpreter lands alongside the Rust VM in v0.2.
+  in v0.1; full interpreter lands inside v0.2 alongside the Rust VM.
 - **Serverless browser playground (v0.3).** The Rust VM is compiled to
   `wasm32-unknown-unknown` (or `wasm32-wasip1`) and loaded by a static
   HTML page under `web/`. No backend server is required; the browser

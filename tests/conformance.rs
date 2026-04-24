@@ -1,10 +1,8 @@
-//! Shared conformance harness — Rust side.
+//! Conformance harness.
 //!
-//! Reads `../conformance/cases.json` (relative to the crate root) and
-//! drives each case through the Rust VM. Python's counterpart at
-//! `../tests/test_conformance.py` runs the same cases against the
-//! Python implementation; both MUST agree byte-for-byte on stdout +
-//! exit code. Stderr is substring-checked only.
+//! Reads `conformance/cases.json` and drives each case through the VM.
+//! The JSON format is language-neutral — future implementations (browser
+//! JS bundle, etc.) can reuse the same goldens.
 
 use serde::Deserialize;
 use std::fs;
@@ -32,11 +30,8 @@ struct Cases {
 }
 
 fn repo_root() -> PathBuf {
-    // CARGO_MANIFEST_DIR is `<repo>/rust`; go one up to the repo root.
+    // The crate lives at the repo root after the v0.2 Python retirement.
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .expect("crate dir has a parent")
-        .to_path_buf()
 }
 
 fn load_source(case: &Case) -> String {

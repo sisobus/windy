@@ -21,45 +21,71 @@ Hello, World!
 ## Highlights
 
 - **Turing complete** — infinite grid, arbitrary-precision integers,
-  self-modifying code via `g`/`p`.
-- **Bytecode VM** — pre-decoded opcodes for fast dispatch (Python 3.12+).
-- **WebAssembly backend** — compile Windy programs to portable `.wasm`.
-- **Visual debugger** — step through programs with a live view of the grid,
-  the IP, and the stack.
-- **sisobus watermark** — embed `sisobus` anywhere in your source to
-  sign your program with an author banner.
+  self-modifying code via `g` / `p`.
+- **Single Rust VM** — powers both the native CLI and the planned browser
+  playground (v0.3).
+- **Interactive debugger** — step through programs with a live view of the
+  grid, the IP, and the stack.
+- **sisobus watermark** — embed `sisobus` anywhere in your source to sign
+  your program with an author banner.
 
 ## Install
 
-Requires [uv](https://github.com/astral-sh/uv) and Python 3.12+.
+Requires a stable Rust toolchain (1.75+). Install via
+[rustup](https://rustup.rs/) if you don't have it.
 
 ```bash
 git clone https://github.com/sisobus/windy.git
 cd windy
-uv sync
+cargo install --path .
+```
+
+Or run without installing:
+
+```bash
+cargo run --release -- run examples/hello.wnd
 ```
 
 ## Usage
 
 ```bash
-uv run windy --help
-uv run windy run examples/hello.wnd
-uv run windy debug examples/hello.wnd
-uv run windy compile examples/hello.wnd -o hello.wasm
-uv run windy version
+windy --help
+windy run examples/hello.wnd
+windy run --seed 42 --max-steps 1000 examples/fib.wnd
+windy version
 ```
+
+## Examples
+
+- `examples/hello.wnd` — straight-line "Hello, World!".
+- `examples/hello_winds.wnd` — 2D loop routing with the sisobus watermark.
+- `examples/fib.wnd` — first ten Fibonacci numbers, state stored via `g` / `p`.
+- `examples/bf.wnd` — (v0.2) Brainfuck interpreter written in Windy; a
+  constructive Turing-completeness witness.
 
 ## Documentation
 
-- **[SPEC.md](SPEC.md)** — the complete language specification. This is the
-  source of truth for every implementation detail.
+- **[SPEC.md](SPEC.md)** — the complete language specification. Source of
+  truth for every implementation detail.
 - **[CLAUDE.md](CLAUDE.md)** — development context for AI pair-programming.
+
+## Testing
+
+```bash
+cargo test                  # unit tests (per-module)
+cargo test --test conformance   # shared goldens (conformance/cases.json)
+```
+
+The conformance JSON is language-neutral; future implementations
+(browser-side JS, WASM, etc.) are expected to consume the same file.
 
 ## Status
 
-**v0.1 — scaffolded.** Project structure, CLI surface, opcode table, and the
-full language specification are in place. Parser, VM, WASM backend, and
-debugger land next.
+**v0.1** shipped an interpreter, interactive debugger, and WebAssembly
+output-baking stopgap in Python. **v0.2** retires the Python codebase and
+reimplements the VM in Rust — the single crate in this repo drives both the
+native CLI now and the browser playground in v0.3. See
+[SPEC.md §10](SPEC.md) for the forward roadmap.
 
 ## Author
 
