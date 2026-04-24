@@ -205,3 +205,72 @@ code {
   padding: 0 0.2em;
   border-radius: 3px;
 }
+
+/* Debug mode */
+
+.debug-grid {
+  grid-template-columns: 2fr 1fr;
+  grid-auto-rows: min-content;
+}
+
+@media (max-width: 800px) {
+  .debug-grid { grid-template-columns: 1fr; }
+}
+
+.panel-wide { grid-column: 1 / -1; }
+
+.grid-view {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.25;
+  white-space: pre;
+  overflow: auto;
+  padding: 0.6rem 0.8rem;
+  max-height: 340px;
+}
+
+.ip-cell {
+  background: var(--accent);
+  color: #fff;
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+#state-view {
+  margin: 0;
+  padding: 0.5rem 0.8rem;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 13px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.15rem 0.6rem;
+}
+
+#state-view dt {
+  color: var(--muted);
+}
+
+#state-view dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+#stack-view {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 13px;
+  padding: 0.5rem 0.8rem;
+  overflow: auto;
+  max-height: 220px;
+  white-space: pre;
+}
+
+#stack-view .empty { color: var(--muted); font-style: italic; }
+
+#stack-len { color: var(--muted); }
+
+#debug-stdout {
+  max-height: 160px;
+}
+
+.hint { color: var(--muted); font-weight: normal; font-size: 0.8em; margin-left: 0.5rem; }
+
