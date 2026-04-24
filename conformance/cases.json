@@ -133,12 +133,6 @@
       "name": "fib_file",
       "source_file": "examples/fib.wnd",
       "expected_stdout": "0 1 1 2 3 5 8 13 21 34 "
-    },
-    {
-      "name": "bf_placeholder_file",
-      "source_file": "examples/bf.wnd",
-      "expected_stdout": "",
-      "expected_stderr_contains": ["Kim Sangkeun"]
     }
   ]
 }

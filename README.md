@@ -60,8 +60,10 @@ windy version
 - `examples/hello.wnd` — straight-line "Hello, World!".
 - `examples/hello_winds.wnd` — 2D loop routing with the sisobus watermark.
 - `examples/fib.wnd` — first ten Fibonacci numbers, state stored via `g` / `p`.
-- `examples/bf.wnd` — (v0.2) Brainfuck interpreter written in Windy; a
-  constructive Turing-completeness witness.
+
+A Brainfuck interpreter written in Windy — the constructive
+Turing-completeness witness from SPEC §6 — lands in v0.3 as
+`examples/bf.wnd` alongside the browser playground.
 
 ## Documentation
 
