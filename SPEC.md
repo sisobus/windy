@@ -268,17 +268,27 @@ Python implementation uses the names below):
 The following features are *not* part of v0.1. They are listed so that v0.1
 programs remain forward-compatible when they ship:
 
-- **Threads / concurrent IPs** (Befunge-98 `t`) — planned for v0.2.
+- **Rust-based reference VM (v0.2).** The interpreter is reimplemented in
+  Rust to collapse the language/host split. A single `windy-core` crate
+  powers both the native CLI (via `cargo install`) and the browser
+  playground (via `wasm32` target). The Python implementation ships on
+  as a *conformance reference* — both implementations MUST produce
+  byte-identical stdout for the same source, seed, and stdin, and this
+  is enforced by shared golden tests.
 - **Brainfuck interpreter example** (`examples/bf.wnd`, §6) — placeholder
-  in v0.1, full interpreter lands in v0.2.
-- **Native WebAssembly AOT backend.** v0.1 ships an *output-baking*
-  backend (`wasm.py`): the program is executed once by the Python VM and
-  its stdout is embedded in a WASI module. A full Windy-VM-in-WAT
-  compiler is v0.2.
-- **Fingerprints / language extensions** — v0.3+.
-- **Tracing JIT for hot loops** — v0.3+.
+  in v0.1, full interpreter lands alongside the Rust VM in v0.2.
+- **Serverless browser playground (v0.3).** The Rust VM is compiled to
+  `wasm32-unknown-unknown` (or `wasm32-wasip1`) and loaded by a static
+  HTML page under `web/`. No backend server is required; the browser
+  interprets `.wnd` source directly via the shipped `.wasm`. This
+  replaces the "WAT AOT compiler" plan that v0.1's `wasm.py` stopgap
+  gestured at — per-program AOT is not needed once the interpreter
+  itself ships as WebAssembly.
+- **Threads / concurrent IPs** (Befunge-98 `t`) — v0.4+.
+- **Fingerprints / language extensions** — v0.4+.
+- **Tracing JIT for hot loops** — v0.4+.
 - **Standard-library overlays** (pre-written grid regions loaded by name) —
-  v0.4+.
+  v0.5+.
 
 Implementations MAY define experimental opcodes outside the 34 listed here,
 but MUST gate them behind an explicit opt-in flag to preserve portability.

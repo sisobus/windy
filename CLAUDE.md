@@ -103,12 +103,39 @@ SPEC.md 기준으로 아래는 완료:
    - `examples/fib.wnd` — grid 메모리 기반 피보나치 10개 출력. ✅
    - `examples/bf.wnd` — 본격 Brainfuck 인터프리터는 v0.2. v0.1은 placeholder. 🔜
 
-## v0.2 다음 단계
+## v0.2 다음 단계 — Rust 재구현
 
-- **`examples/bf.wnd` 본 구현**: BF 소스를 y=5에 두고, y=100의 테이프에
-  대해 g/p로 작동하는 디스패치 루프. 브래킷 매칭은 런타임 스캔.
-  SPEC §6의 "constructive demonstration" 약속을 v0.2에서 이행.
-- **`wasm.py` 진짜 AOT 컴파일러**: 현 stopgap은 미리 실행한 stdout을
-  베이킹한다. v0.2에서는 grid를 data section에 심고, 34 opcode 디스패처를
-  WAT로 직접 구현 (self-modification / `~` / stdin 포함).
-- **동시 IP 지원 (`t`)** — SPEC.md §10 참조.
+**방향**: VM을 Rust로 한 번만 쓰고, 같은 크레이트를 네이티브 CLI와 WASM
+양쪽으로 빌드한다. "언어별 로직 중복"을 원천 차단하고, v0.3 브라우저
+플레이그라운드의 전제를 동시에 깐다.
+
+- **`windy-core` 크레이트**: `parser`, `grid`, `vm`, `easter` 전부 Rust로.
+  stack underflow=0, div/mod by zero=0, GRID_PUT 후 셀 재디코드 같은
+  엣지케이스는 Python 구현과 비트-동일 (conformance).
+- **`windy-cli` 크레이트 (또는 동일 크레이트의 bin 타겟)**: `windy run`
+  / `debug` / `compile` 재현. `cargo install windy-cli` 만으로 설치.
+- **Python 구현의 지위 변화**: 본 구현에서 **conformance reference**로
+  승격. 두 구현이 같은 입력(소스/시드/stdin)에 같은 출력(stdout 바이트)
+  을 내야 한다. 골든 테스트를 `tests/conformance/`에 공유하고 CI에서
+  py/rs 양쪽 대상으로 각각 돌린다.
+- **현 Python wasm.py stopgap 폐기**: `.wasm` 경로가 Rust→WASM으로
+  바뀌면 output baking 방식은 더 이상 필요 없다. `wasm.py`와 관련 CLI
+  엔트리는 v0.2 초입에 제거 + 릴리즈 노트 명시.
+- **`examples/bf.wnd` 본 구현**: Rust VM의 conformance를 검증할 복잡한
+  예제로 함께 땅. BF 소스를 y=5, 테이프를 y=100에 두고 런타임 스캔으로
+  브래킷 매칭. SPEC §6 "constructive demonstration" 이행.
+
+## v0.3 다음 단계 — 브라우저 플레이그라운드
+
+- **`windy-core` WASM 빌드**: `wasm32-unknown-unknown` 또는
+  `wasm32-wasip1` 타겟. `wasm-bindgen` 또는 raw `extern "C"` 로 JS에
+  `run(source, stdin) -> stdout` 식의 얇은 API 노출.
+- **`web/` 정적 플레이그라운드**: HTML 한 장 + JS. 에디터(Monaco 또는
+  `<textarea>`), Run 버튼, stdout 패널, 그리드 미니맵(선택). 서버 없음.
+- **배포**: GitHub Pages 또는 Cloudflare Pages 정적 호스팅.
+
+## v0.4+
+
+- **동시 IP (`t`)** — SPEC §10.
+- **Fingerprints / 확장 opcode 게이트**.
+- **Hot-loop tracing JIT** — Rust VM 위에서.
