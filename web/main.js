@@ -1,4 +1,4 @@
-import init, { run, version, Session } from './pkg/windy.js';
+import init, { run, version, Session } from './pkg/windy.js?v=__VERSION__';
 
 // Inline the canonical examples so the playground is self-contained and
 // works over `file://` too (no fetch fallbacks needed).
@@ -582,7 +582,12 @@ runBtn.disabled = true;
 debugBtn.disabled = true;
 
 (async () => {
-  await init();
+  // wasm-bindgen's default loader builds the .wasm URL via
+  // `new URL('windy_bg.wasm', import.meta.url)`, which drops the query
+  // string of the base — so without an explicit URL the .wasm would
+  // ignore our cache-bust. Construct the versioned URL ourselves.
+  const wasmUrl = new URL('./pkg/windy_bg.wasm?v=__VERSION__', import.meta.url);
+  await init({ module_or_path: wasmUrl });
   wasmReady = true;
   versionBadge.textContent = `windy ${version()}`;
   runBtn.disabled = false;

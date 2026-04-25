@@ -45,6 +45,20 @@ jobs:
       - name: Stage WASI binary into web/
         run: cp target/wasm32-wasip1/release/windy.wasm web/windy.wasm
 
+      - name: Stamp cache-bust version into web assets
+        run: |
+          # Sources contain `?v=__VERSION__` placeholders on every
+          # asset URL (style.css, main.js, ./pkg/windy.js, windy_bg.wasm).
+          # Replacing the placeholder with the short commit SHA
+          # gives every deploy a unique URL per asset, so browsers
+          # never serve a stale cached file after a push to main.
+          # Local dev keeps the literal `__VERSION__` — static servers
+          # ignore the query string, so the page renders correctly
+          # without this CI step.
+          SHORT_SHA="${GITHUB_SHA::7}"
+          echo "Cache-bust version: $SHORT_SHA"
+          sed -i "s/__VERSION__/$SHORT_SHA/g" web/index.html web/main.js
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -52,17 +66,29 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Sync site assets to S3
+      - name: Sync site assets to S3 (excluding index.html and *.wasm)
         run: |
           if [ -z "$S3_BUCKET" ]; then
             echo "S3 bucket secret (AWS_S3_BUCKET) is missing."
             exit 1
           fi
+          # index.html is the only entry point with a stable URL, so we
+          # upload it separately with no-cache to guarantee browsers
+          # see the new ?v=<sha> references on every deploy. Other
+          # static assets are versioned by query string and can use
+          # default headers — different ?v= = different cache key.
           aws s3 sync web/ "s3://${S3_BUCKET}/" \
             --delete \
             --exclude "README.md" \
             --exclude ".*" \
-            --exclude "*.wasm"
+            --exclude "*.wasm" \
+            --exclude "index.html"
+
+      - name: Upload index.html with no-cache header
+        run: |
+          aws s3 cp web/index.html "s3://${S3_BUCKET}/index.html" \
+            --content-type "text/html; charset=utf-8" \
+            --cache-control "no-cache, no-store, must-revalidate"
 
       - name: Upload .wasm files with application/wasm Content-Type
         run: |
