@@ -1,0 +1,60 @@
+→t←@
+
+  sisobus
+  ----------------------------------------------------------------------
+  v1.0 (proposal) demo: IP collision (merge), head-on case.
+
+  Run with:
+
+      windy run --v1 examples/storm.wnd
+
+  Output is empty and the program halts cleanly with exit 0. The
+  interesting part is what happens on the way there.
+
+  Tick by tick on row 0:
+
+    tick  IP#0 cell    IP#0 effect              IP#1 cell  IP#1 effect
+    ----  ----------   ----------------------   ---------  ------------------
+     1    (0,0) →      dir = east                  —       not yet alive
+                       advance → (1,0)
+     2    (1,0) t      SPLIT: spawn IP#1 at        —       (born this tick,
+                       (0,0) going west;                   runs from tick 3)
+                       advance → (2,0)
+     3    (2,0) ←      dir = west                  (0,0) → dir = east
+                       advance → (1,0)             advance → (1,0)
+     ↓ end-of-tick collision pass: both IPs at (1,0) ↓
+              direction sum: (-1, 0) + (+1, 0) = (0, 0)
+              "head-on storm cancels itself" — merged IP dies.
+     4    (no live IPs — program halts)
+
+  The collision rule (SPEC § Pre-release: v1.0 / IP Collision):
+
+    1. After every tick's movement step, group live IPs by (x, y).
+    2. For each group of two-or-more, sort by birth order.
+    3. Merge oldest-first into a single IP at that cell:
+         stack    : concat in birth order, oldest at bottom
+         direction: per-axis vector sum, clipped to {-1, 0, +1}
+                    if the sum is (0, 0) → merged IP dies
+         speed    : max of constituents
+         strmode  : forced off
+    4. Remove the absorbed IPs from the live list.
+
+  Things to try:
+
+    - Without --v1, the same source still SPLITs (`t` is in v0.4),
+      but no collision pass runs — IP#0 and IP#1 simply pass through
+      each other at (1,0) and keep drifting until --max-steps fires.
+      Run `windy run --max-steps 50 examples/storm.wnd` to see the
+      cap-out.
+
+    - To watch a non-fatal merge, design a layout where the two IPs
+      arrive at the same cell with PERPENDICULAR directions. Their
+      vector sum is (±1, ±1) — a diagonal — and the merged IP
+      survives, carrying the concatenated stacks. Hint: route one IP
+      with arrows and another with a `t` SPLIT so they meet at right
+      angles.
+
+    - Push values onto each IP before they collide. After a non-
+      fatal merge, `.` or `,` will pop from the combined stack —
+      birth-order concat means the older IP's values are at the
+      BOTTOM of the merged stack, the newer IP's values on top.

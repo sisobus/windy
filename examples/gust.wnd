@@ -1,0 +1,54 @@
+≫9.@@
+
+  sisobus
+  ----------------------------------------------------------------------
+  v1.0 (proposal) demo: wind speed (≫ GUST / ≪ CALM)
+
+  Run this two ways and compare the output:
+
+      windy run    examples/gust.wnd      → "9 "  + warning to stderr
+      windy run --v1 examples/gust.wnd    → "0 "  (no warning)
+
+  The exact same source produces a different result because ≫ and ≪
+  are NOT v0.4 opcodes. Without --v1 they're "unknown glyphs" — the
+  runtime warns once and treats them as NOPs. With --v1 they manage
+  the IP's per-tick speed.
+
+  Tick by tick on row 0, with --v1:
+
+    cell        op                         speed   IP after move
+    ----        ------------------------   -----   -------------
+    (0,0) ≫     GUST: speed += 1            2      (2,0)
+    (1,0) 9     SKIPPED (intermediate)      —      —
+    (2,0) .     pop empty stack → "0 "      2      (4,0)
+    (3,0) @     SKIPPED (intermediate)      —      —
+    (4,0) @     HALT                        —      —
+
+  At speed N the IP advances N cells per tick; only the destination
+  cell decodes — intermediate cells are not even read for unknown-
+  glyph warnings or string-mode toggles. Fast wind blows past
+  obstacles, including the digit 9 here, so `.` finds an empty stack
+  and prints the underflow zero.
+
+  Compare with v0.4 (same source, no --v1):
+
+    cell    op                                output
+    ----    -----------------------------     ------
+    (0,0)   ≫ unknown — warned, NOP           (warning on stderr)
+    (1,0)   9 push                            —
+    (2,0)   .  pop & print                    "9 "
+    (3,0)   @ HALT                            —
+
+  Things to play with:
+
+    - Add a CALM (≪) somewhere on the path; speed drops back. Note
+      that ≪ at speed 1 traps the program (exit 134) — that's a
+      design choice to give ≪ a sharp edge instead of a silent clamp.
+
+    - Layout cells so the IP hits ≫ multiple times. Each ≫ adds 1 to
+      speed; the IP starts skipping more aggressively each tick.
+
+    - Try speed=3 / speed=4 traversals — at higher speeds the
+      probability that any given decoration cell ever runs drops
+      sharply. Lay your "real" code on a dense grid of multiples of
+      the active speed.

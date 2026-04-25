@@ -92,6 +92,19 @@ header h1 {
 
 .toolbar input[type="number"] { width: 9em; }
 
+/* v1.0 (proposal) opt-in checkbox — give it an accent ring so it
+   reads as a "mode flag" rather than just another input. */
+.toolbar .v1-toggle {
+  padding: 0.15rem 0.5rem;
+  border: 1px dashed var(--accent);
+  border-radius: 4px;
+  font-weight: 500;
+}
+.toolbar .v1-toggle .hint {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
 .toolbar button {
   padding: 0.35rem 1.2rem;
   background: var(--accent);
@@ -368,6 +381,17 @@ code {
 .opcode-blurb a { color: var(--accent); }
 
 .opcode-table-wrap { overflow-x: auto; }
+
+/* v1.0 (proposal) rows: tinted to mark as opt-in rather than
+   shipping. The "v1" category cell already labels them, but the
+   tint reinforces it visually. */
+.opcode-table .v1-row td {
+  background: color-mix(in oklab, var(--accent) 8%, transparent);
+}
+.opcode-table .v1-row td:first-child {
+  font-weight: 600;
+  color: var(--accent);
+}
 
 .opcode-table {
   width: 100%;

@@ -20,35 +20,47 @@
 
 ## 즉시 작업 가능한 항목
 
-다음 세션이 어디서 시작하면 되는지 우선순위 순:
+v1.0 (proposal) 구현 한 바퀴 다 돌았습니다. 다음 세션 우선순위:
 
-1. **v1.0 구현 — F (풍속) + D (충돌 merge).** SPEC § *Pre-release: v1.0
-   (proposal)*가 정답. 단계:
-   - `IpContext`에 `speed: BigInt` (기본 1) 필드 추가.
-   - `src/opcodes.rs`에 `Op::Gust` (`≫`, U+226B), `Op::Calm` (`≪`, U+226A)
-     decode + dispatch.
-   - `src/vm.rs` 이동 단계: `pos += dir * speed`. 중간 셀 스킵, 도착 셀만
-     실행.
-   - 충돌 pass: tick 끝마다 같은 좌표 IP 그룹화 → birth-order merge
-     (스택 concat / 방향 vec sum clip / speed max / strmode reset /
-     `(0,0)` ⇒ die).
-   - CLI에 `--v1` 플래그 (브라우저 wasm은 동등한 스위치).
-   - `conformance/v1.json` 신규 (gust 단일 IP, calm@1 트랩, 충돌 head-on
-     death, 3-IP merge 등 시드 케이스).
-   - `examples/gust.wnd`, `examples/storm.wnd`.
-   - 디버거 UI: per-IP speed 배지, merge 이벤트 표시.
-2. **빌드 산출물에 진짜 파일명 hash 도입** (지금은 `?v=<sha>` 쿼리스트링).
-   v1.0 후 미세 최적화.
+1. **v1.0 stabilize → 정식 cut**.
+   - `--v1` 플래그를 default-on으로 뒤집기 + `--v0` legacy 게이트 추가.
+   - 크레이트 버전을 `1.0.0`으로 bump, SPEC.md 헤더 v0.4 → v1.0,
+     `## Pre-release: v1.0 (proposal)`을 정식 §11 같은 곳으로 이동.
+   - 리팩터: README "Why Windy"의 "honest dialect labelling" 문구를
+     v1.0 정체성 (속도 + 충돌)으로 갱신.
+2. **v1.0 cut 직후, deferred publish 일괄 처리**.
+   - `cargo login` (사용자 1회) → `cargo publish --dry-run` →
+     `cargo publish`.
+   - GitHub repo public 전환. README 뱃지 자동 라이브.
+3. **추가 v1.0 케이스 / 데모**:
+   - 비대칭 충돌 — 직각 만남으로 살아남는 merge 케이스. 스택 concat
+     검증을 stdout으로 끌어내려면 layout 조립이 필요.
+   - 디버거에서 merge 이벤트가 일어났을 때 시각적으로 강조 (현재는
+     상태 패널의 ips 카운트 변화로만 추론 가능). step-by-step UI 개선.
+4. **빌드 산출물에 진짜 파일명 hash 도입** (지금은 `?v=<sha>` 쿼리스트링).
+   v1.0 publish 후 미세 최적화.
 
-### v1.0 이후로 defer
+### 이미 끝난 v1.0 구현 체크리스트 (참고용)
 
-- **`crates.io` 첫 publish** — Cargo.toml 메타데이터·LICENSE·package list
-  준비는 끝났지만 v0.5에서 publish하면 곧 v1.0 major bump가 따라와서
-  사용자 혼란만 큼. v1.0이 stable해진 시점에 한 번에.
-- **repo public 전환** + README 뱃지 데이터 노출 — 위와 동일 사유.
-  v1.0과 같이 공개하는 게 임팩트도 큼.
-
-작업하기 전에 사용자에게 어느 항목부터 갈지 확인할 것.
+- `Op::Gust`/`Op::Calm` decode + name (`src/opcodes.rs`)
+- `IpContext.speed: BigInt`, 기본 1 (`src/vm.rs`)
+- `Vm::with_v1` ctor + `pub v1: bool` + `pub trapped: bool`
+- `ExitCode::Trap` (134), `Vm::run`이 trap 후 종료
+- 이동 단계 v1: `pos += dir * speed`, 도착 셀만 실행
+- SPLIT 자식 부모 speed 상속
+- GUST/CALM 디스패처 (CALM at 1 = 트랩)
+- 충돌 merge pass (birth-order, 스택 concat, 벡터 합 clip, speed max,
+  strmode reset, `(0,0)` ⇒ die)
+- CLI `--v1`: `windy run --v1` / `windy debug --v1`
+- wasm `Session::new(.., v1)`, `run(.., v1)`, getter `session.v1` /
+  `session.trapped` / `session.speed_for(i)`
+- 75 unit tests (12 v1) + conformance/v1.json (4 cases) +
+  `tests/conformance_v1.rs` 하네스 + additivity 테스트 (v0 cases 모두
+  v1 모드에서 동일 출력)
+- `examples/gust.wnd`, `examples/storm.wnd`
+- 플레이그라운드: example picker에 gust/storm 추가 (선택 시 v1 자동
+  on), 툴바에 v1 체크박스, Opcode Reference에 ≫/≪ 별도 행, 디버그
+  state 패널에 speed/trap 표시, exit 134 → "trap" 라벨
 
 ## 개요
 
@@ -91,16 +103,22 @@ windy/
 │   ├── debugger.rs        # 터미널 인터랙티브 스텝 (ANSI + 박스 그리기)
 │   └── wasm_api.rs        # 브라우저 빌드용 wasm-bindgen 래퍼 (Session 등)
 ├── tests/
-│   └── conformance.rs     # conformance/cases.json 로더 + 검증
+│   ├── conformance.rs     # conformance/cases.json 로더 + 검증 (v0.4)
+│   └── conformance_v1.rs  # v1.json 로더 + additivity 가드 (v0 cases도
+│                          #   v1 모드에서 동일 출력 보장)
 ├── conformance/
-│   └── cases.json         # 언어 중립 골든 (29 cases 현재)
+│   ├── cases.json         # v0.4 언어 중립 골든 (29 cases)
+│   └── v1.json            # v1.0 (proposal) 골든 (4 cases — gust skip,
+│                          #   gust/calm cycle, calm@1 trap, 2× gust)
 ├── examples/
 │   ├── hello.wnd          # 직선 "Hello, World!"
 │   ├── hello_winds.wnd    # 2D 루프 라우팅 + sisobus 워터마크
 │   ├── fib.wnd            # 첫 10개 피보나치, grid memory(g/p) 활용
 │   ├── stars.wnd          # 별 삼각형, stack pre-load + 카운터 루프
 │   ├── factorial.wnd      # 1!..10!, BigInt 자랑
-│   └── split.wnd          # 동시 IP (`t`) 데모, 두 IP 모두 깨끗하게 halt
+│   ├── split.wnd          # 동시 IP (`t`) 데모, 두 IP 모두 깨끗하게 halt
+│   ├── gust.wnd           # v1.0 (proposal): 풍속 (≫/≪) — --v1로 실행
+│   └── storm.wnd          # v1.0 (proposal): 충돌 merge head-on death
 ├── web/                   # 정적 플레이그라운드 (CI가 build해서 S3에 sync)
 │   ├── index.html         # 에디터 + Run/Debug + Opcode Reference panel
 │   ├── main.js            # ES module, Session API 사용
@@ -238,18 +256,19 @@ Python 인터프리터 + rich 디버거 + WASI output-baking stopgap. v0.2에서
 - [→ v1.0] **repo public 전환** + 뱃지 데이터 노출. 위와 동일 사유로
       v1.0과 같이 공개.
 
-### v1.0 (Befunge dialect 벗어나기) — 결정 완료, 구현 시작
+### v1.0 (Befunge dialect 벗어나기) — 의미론 + 구현 둘 다 완료, --v1 opt-in
 
 **의미론 결정 (post v0.5 review):** **F (풍속) + D (IP 충돌 merge)** 둘 다
 채택. 둘 다 additive·직교, 풍속이 만든 race 패턴이 충돌 의미론과 맞물림.
 정식 명세는 SPEC § *Pre-release: v1.0 (proposal)*, 결정 사유와 reject된
 후보(A 관성 / B 시간축 / C 2D 스택 / E 다중토큰)는 `docs/v1.0-design.md`.
 
-**합의된 디테일** (사용자 사인 받음):
+**합의된 디테일** (사용자 사인 받음, 코드에 박힘):
 
 - 풍속은 `BigInt` (upper bound 없음). CALM이 GUST 대칭이라 deceleration
   항상 가능.
 - `≪` at speed=1 ⇒ 0 되니 **런타임 트랩** (CALM에 sharp edge 필요).
+  `ExitCode::Trap` (134), `Vm.trapped` 플래그로 surface.
 - speed=N 의미: 한 tick에 N칸 점프, **도착 셀만 실행**, 중간 셀 스킵
   (string-mode 토글 / unknown-glyph 경고 다 안 일어남).
 - `t` SPLIT: 자식이 부모 speed 그대로 상속.
@@ -257,7 +276,15 @@ Python 인터프리터 + rich 디버거 + WASI output-baking stopgap. v0.2에서
   `(0,0)` ⇒ die) / speed = max / strmode = false.
 - mid-segment 교차(스왑) 검출 안 함. v1.x로 미룸.
 
-**구현 작업**: § "즉시 작업 가능한 항목" 1번 항목 단계 참고.
+**현재 상태**: `--v1` 플래그로 opt-in. 플래그 OFF면 v0.4와 비트-동일
+(additivity 테스트가 cases.json 전체를 v1 모드로도 돌려서 동일 출력
+확인). 플래그 ON이면 ≫/≪ 활성, 충돌 pass 실행, exit 134 trap 가능.
+
+**남은 v1.0 작업** (§ "즉시 작업 가능한 항목" 1번 참고):
+
+- 정식 cut: `--v1` default-on, crate 1.0.0, SPEC v1.0 헤더 승급, README
+  v1.0 정체성 갱신.
+- 정식 cut 직후 crates.io publish + repo public.
 
 ### v1.x+
 

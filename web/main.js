@@ -122,6 +122,88 @@ const EXAMPLES = {
       \`t\`.
 `,
 
+  gust: `≫9.@@
+
+  sisobus
+  ----------------------------------------------------------------------
+  v1.0 (proposal) demo: wind speed (≫ GUST / ≪ CALM).
+
+  Toggle the "v1" checkbox in the toolbar and re-Run to compare:
+
+    v0 (off): "9 " + a one-time "unknown glyph ≫" warning on stderr.
+    v1 (on):  "0 " — ≫ raises speed to 2, the digit 9 is SKIPPED, and
+              \`.\` finds an empty stack (underflow → 0).
+
+  Tick by tick (v1):
+
+    cell        op                            speed   IP after move
+    ----        --------------------------    -----   -------------
+    (0,0) ≫     GUST: speed += 1               2      (2,0)
+    (1,0) 9     SKIPPED (intermediate)         —      —
+    (2,0) .     pop empty stack → "0 "         2      (4,0)
+    (3,0) @     SKIPPED (intermediate)         —      —
+    (4,0) @     HALT                           —      —
+
+  Notes:
+
+    - At speed N the IP advances N cells per tick; only the
+      destination cell decodes — intermediate cells are not even
+      read for unknown-glyph warnings or string-mode toggles.
+    - ≪ (CALM) at speed 1 is a runtime trap (exit 134). It's a
+      design choice: ≪ has a sharp edge instead of a silent clamp.
+`,
+
+  storm: `→t←@
+
+  sisobus
+  ----------------------------------------------------------------------
+  v1.0 (proposal) demo: IP collision (merge), head-on case.
+
+  Run with the "v1" checkbox ON. Output is empty and the program
+  halts cleanly with exit 0. The interesting part is what happens
+  on the way there.
+
+  Tick by tick on row 0:
+
+    tick  IP#0 cell    IP#0 effect              IP#1 cell  IP#1 effect
+    ----  ----------   ----------------------   ---------  ------------------
+     1    (0,0) →      dir = east                  —       not yet alive
+                       advance → (1,0)
+     2    (1,0) t      SPLIT: spawn IP#1 at        —       (born this tick,
+                       (0,0) going west;                   runs from tick 3)
+                       advance → (2,0)
+     3    (2,0) ←      dir = west                  (0,0) → dir = east
+                       advance → (1,0)             advance → (1,0)
+     ↓ end-of-tick collision pass: both IPs at (1,0) ↓
+              direction sum: (-1, 0) + (+1, 0) = (0, 0)
+              "head-on storm cancels itself" — merged IP dies.
+     4    (no live IPs — program halts)
+
+  The collision rule (SPEC § Pre-release: v1.0 / IP Collision):
+
+    1. After every tick's movement step, group live IPs by (x, y).
+    2. For each group of two-or-more, sort by birth order.
+    3. Merge oldest-first into a single IP at that cell:
+         stack    : concat in birth order, oldest at bottom
+         direction: per-axis vector sum, clipped to {-1, 0, +1}
+                    if the sum is (0, 0) → merged IP dies
+         speed    : max of constituents
+         strmode  : forced off
+    4. Remove the absorbed IPs from the live list.
+
+  Things to try:
+
+    - Turn v1 OFF and Run. The same source still SPLITs (\`t\` is
+      in v0.4) but no collision pass runs — the two IPs pass
+      through each other at (1,0) and drift forever. Use a
+      max-steps cap so the page doesn't lock up.
+
+    - To watch a non-fatal merge, design a layout where the two
+      IPs arrive at the same cell with PERPENDICULAR directions.
+      Their vector sum is (±1, ±1) — a diagonal — and the merged
+      IP survives, carrying the concatenated stacks.
+`,
+
   blank: '',
 };
 
@@ -156,6 +238,7 @@ const stdinEl = $('stdin');
 const pickerEl = $('example-picker');
 const seedEl = $('seed');
 const maxStepsEl = $('max-steps');
+const v1ModeEl = $('v1-mode');
 const versionBadge = $('version-badge');
 
 // Idle-mode toolbar + run output
@@ -186,8 +269,16 @@ let wasmReady = false;
 let session = null;
 let mode = 'idle'; // 'idle' | 'debug'
 
+// Examples that need v1 mode to behave as documented. Selecting one
+// auto-flips the toggle so users don't get confused by the v0 fallback
+// behavior on first Run.
+const V1_EXAMPLES = new Set(['gust', 'storm']);
+
 function loadExample(key) {
   sourceEl.value = EXAMPLES[key] ?? '';
+  if (V1_EXAMPLES.has(key) && !v1ModeEl.checked) {
+    v1ModeEl.checked = true;
+  }
 }
 
 function parseOptionalBigInt(value) {
@@ -215,10 +306,19 @@ async function handleRun() {
       stdinEl.value,
       parseOptionalBigInt(seedEl.value),
       parseOptionalBigInt(maxStepsEl.value),
+      v1ModeEl.checked,
     );
     stdoutEl.textContent = result.stdout;
     stderrEl.textContent = result.stderr;
-    exitEl.textContent = `exit ${result.exit}`;
+    // exit 134 = v1 runtime trap (CALM at speed 1). Surface it
+    // explicitly so users don't squint at "exit 134".
+    if (result.exit === 134) {
+      exitEl.textContent = 'exit 134 · trap';
+    } else if (result.exit === 124) {
+      exitEl.textContent = 'exit 124 · max-steps';
+    } else {
+      exitEl.textContent = `exit ${result.exit}`;
+    }
     result.free();
   } catch (err) {
     stderrEl.textContent = String(err);
@@ -286,10 +386,24 @@ function renderState() {
     ['ip', `(${session.ip_x}, ${session.ip_y})`],
     ['dir', DIR_NAMES[dirKey] ?? '?'],
     ['strmod', session.strmode ? 'on' : 'off'],
-    ['halted', session.halted ? 'yes' : 'no'],
-    ['cell', `${JSON.stringify(displayCh)} (U+${cp.toString(16).toUpperCase().padStart(4, '0')})`],
-    ['op', session.current_op()],
   ];
+  // v1 mode: surface speed (per primary IP) and any trap state.
+  if (session.v1) {
+    const ipCount = Number(session.ip_count);
+    if (ipCount <= 1) {
+      rows.push(['speed', session.speed_for(0)]);
+    } else {
+      const speeds = [];
+      for (let i = 0; i < ipCount; i++) speeds.push(session.speed_for(i));
+      rows.push(['speed', speeds.join(' / ')]);
+    }
+    if (session.trapped) {
+      rows.push(['trap', 'calm in still air']);
+    }
+  }
+  rows.push(['halted', session.halted ? 'yes' : 'no']);
+  rows.push(['cell', `${JSON.stringify(displayCh)} (U+${cp.toString(16).toUpperCase().padStart(4, '0')})`]);
+  rows.push(['op', session.current_op()]);
   stateView.innerHTML = rows
     .map(([k, v]) => `<dt>${k}</dt><dd>${escHtml(v)}</dd>`)
     .join('');
@@ -372,6 +486,7 @@ function buildSession() {
     stdinEl.value,
     parseOptionalBigInt(seedEl.value),
     parseOptionalBigInt(maxStepsEl.value),
+    v1ModeEl.checked,
   );
 }
 
@@ -435,6 +550,8 @@ function doContinue() {
   renderDebug();
   if (exit === 124) {
     debugStdoutEl.textContent += '\n[max-steps exceeded]';
+  } else if (exit === 134) {
+    debugStdoutEl.textContent += '\n[trap: ' + (session.stderr() || 'runtime trap') + ']';
   }
 }
 
