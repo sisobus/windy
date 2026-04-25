@@ -340,8 +340,81 @@ const EXAMPLES = {
 
   - Open the source in any text editor and the IP's actual
     trajectory is visible as the spiral itself.
-\`,
+`,
 
+  winds: `→ #↓t #↓t #↓t #↓t @
+
+
+
+
+
+
+
+
+
+   @   @   @   @
+
+  sisobus
+  ----------------------------------------------------------------------
+  Five winds blow simultaneously across the grid. The program
+  prints nothing; it exists to exhibit Windy's multi-IP machinery.
+  At peak the runtime juggles five live IPs in parallel.
+
+  How it works
+  ------------
+  Row 0 holds four \`t\` SPLITs. The parent IP enters going east
+  and crosses them in sequence. Each \`t\` spawns a fresh child
+  at (parent_x − 1, 0) going west. Four splits = five total IPs
+  (1 parent + 4 children).
+
+  Cascade avoidance
+  -----------------
+  Two design tricks keep the splits clean:
+
+  1. \`#\` (TRAMPOLINE) before each \`t\`. The parent reads \`#\`,
+     skips the next cell, and lands on \`t\`. The cell that gets
+     skipped is always \`↓\` — that's deliberate.
+  2. \`↓\` at every (col_t − 1) position. When the child reads
+     its first cell, it sees \`↓\`, sets its direction to south,
+     and immediately leaves row 0. It never re-traverses the
+     row of \`t\`s, so children can't snowball.
+
+  After the four splits the parent continues east, falls into
+  the final \`@\` at (18, 0), and halts. Each child descends
+  ten blank rows of NOP space and lands on its own \`@\` on
+  row 10:
+
+      col 3   col 7   col 11   col 15
+       │        │         │         │
+       ↓        ↓         ↓         ↓
+       (drift through 9 rows of space)
+       ↓        ↓         ↓         ↓
+       @        @         @         @
+
+  Tick-by-tick IP count
+  ---------------------
+    tick 0–3   : 1 (parent only)
+    tick 4     : 2 (child1 born)
+    tick 7     : 3 (child2 born)
+    tick 10    : 4 (child3 born)
+    tick 13    : 5 ← peak
+    tick 14    : 5 (all four children still descending)
+    tick 15    : 3 (parent halts; child1 halts on row 10)
+    tick 18    : 2 (child2 halts)
+    tick 21    : 1 (child3 halts)
+    tick 24    : 0 (child4 halts; program ends)
+
+  Things to notice
+  ----------------
+  - Step under Debug. Watch the \`ips:\` row climb 1 → 2 → 3
+    → 4 → 5 then drain back to 0. The grid view highlights
+    every live IP cell, so the four descending columns light
+    up at once.
+
+  - The blank rows in the source aren't padding — they are
+    the children's flight paths, drawn into the grid as empty
+    space. Each child crosses ten of those rows.
+`,
 
   blank: '',
 };

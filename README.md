@@ -191,10 +191,14 @@ windy version
   speed=2 skips decoy cells and prints "WINDY".
 - `examples/storm.wnd` — head-on IP collision; the merge pass
   cancels both IPs and the program halts cleanly.
-- `examples/anthem.wnd` — multi-row wind-tunnel ASCII art that
-  prints "code flows like wind". Speed=2 lets the IP descend
-  through walls of `↘` and `↗` without ever decoding them, only
-  landing on the print row in between.
+- `examples/anthem.wnd` — clockwise diagonal-cornered spiral
+  that prints "code flows like wind". Speeds up with `≫` for
+  the perimeter, slows back to 1 at the eye, runs `t` once,
+  and halts via head-on collision merge — no `@` in the source.
+  Exercises all four v2.0 mechanics in one program.
+- `examples/winds.wnd` — four `t` splits in a row, peaking at
+  five simultaneous IPs descending in parallel. Each halts at
+  its own `@`. No printing; pure multi-IP exhibit.
 
 ## Browser playground
 

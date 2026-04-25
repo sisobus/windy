@@ -8,7 +8,28 @@ The crate on crates.io is `windy-lang`; the language and the installed
 binary are both `windy`. References to "the crate" below always mean
 `windy-lang` v$X.Y.Z`.
 
-## [2.0.0] — 2026-04-25
+## [Unreleased]
+
+### Added
+
+- **`examples/winds.wnd`** — a multi-IP exhibit that doesn't print
+  anything. Four `t` SPLITs in a row push the live IP list up to
+  five (1 parent + 4 children) at peak; each child immediately
+  redirects south via a `↓` cell on its spawn position, descends
+  ten rows of NOP space, and halts at its own `@` on row 10.
+  The parent uses `#` (TRAMPOLINE) before each `t` to skip the
+  `↓` redirects so they never apply to *itself*. Demonstrates
+  cascade avoidance with multiple SPLITs, alongside the existing
+  `examples/storm.wnd` (head-on collision merge).
+
+### Fixed
+
+- **Browser playground source loading**. The `anthem` entry in
+  `web/main.js`'s `EXAMPLES` map closed its template literal with
+  `\\\``, which JS treats as an escaped literal backtick — so the
+  template stayed open, swallowed the rest of the file, and the
+  module failed to load (no examples appeared in the editor when
+  picked). Replace with a real backtick. (Reported in-session.)
 
 Breaking-change cut. Removes the v0.4 legacy gate and tightens the
 language surface to a single set of semantics. No new features.
