@@ -56,10 +56,9 @@ v1.0 정식 cut 완료. 다음 세션 우선순위:
 
 ## 개요
 
-Windy는 2D 풍향 기호 기반의 esolang입니다. Befunge-98의 변종이고,
-v0.x까지는 의미론적으로 dialect입니다 — Unicode 풍향 글리프 1급 + 강제
-sisobus 워터마크 + 임의 정밀도 강제 + sparse-grid 강제가 차별점. v1.0에서
-의미론 feature 하나를 도입해 dialect를 벗어날 계획.
+Windy는 2D 풍향 기호 기반의 esolang입니다. 35 opcode, 무한 sparse grid,
+임의 정밀도 stack/speed/grid coords, 8 wind 방향 1급 글리프, 동시 IP +
+충돌 merge가 정체성.
 
 이름은 포켓몬 윈디(Arcanine) 한국어 발음에서. 풍향 메커니즘은 이름의
 테마적 말장난.
@@ -145,6 +144,11 @@ windy/
 7. **wasm 산출물은 CI가 단일 진실 원본.** 로컬 `wasm-pack build`는
    sanity test 용도(특히 `wasm_api.rs` 변경 시). 커밋된 `web/pkg/`는 없음
    (gitignored).
+8. **릴리즈하면 `CHANGELOG.md`에 반영.** 크레이트 버전 bump (특히
+   `cargo publish`) 또는 SPEC 의미론 변경, 새 opcode, 새 CLI 플래그처럼
+   사용자 가시적인 변경을 만들 때마다 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
+   형식으로 새 항목을 추가한다. 푸시 전에 한 번 더 확인. 같은 내용을
+   GitHub Releases에도 복사하면 외부 사용자에게 노출된다.
 
 ## 빌드 및 실행
 
@@ -180,6 +184,14 @@ cargo test --test conformance          # conformance만
 ## 배포 / 인프라
 
 - **Repo**: `sisobus/windy` (현재 private, v1.0 publish와 함께 public 전환 예정)
+- **crates.io 패키지**: `windy-lang` (베어 `windy`는 선점되어 있음). 라이브러리/바이너리 이름은 그대로 `windy`. 새 버전 publish 절차:
+  1. `Cargo.toml` `[package] version` bump.
+  2. `CHANGELOG.md`에 새 섹션 추가 (Keep a Changelog 형식 — Added /
+     Changed / Removed / Notes). 날짜와 버전 헤더 잊지 말 것.
+  3. `cargo test` + `cargo publish --dry-run` 통과 확인.
+  4. 커밋 + push (CI가 웹 사이트 갱신).
+  5. `cargo publish` (사용자 사전 `cargo login` 필요).
+  6. GitHub Releases에 같은 changelog 항목 복사 (옵션이지만 권장).
 - **CI**: `.github/workflows/deploy.yml`. main push 또는 workflow_dispatch에
   반응. Rust stable + wasm32-unknown-unknown + wasm32-wasip1 toolchain →
   wasm-pack 0.13.1 → `wasm-pack build --target web` + `cargo build --target
@@ -246,7 +258,7 @@ Python 인터프리터 + rich 디버거 + WASI output-baking stopgap. v0.2에서
 - [→ v1.0] **`crates.io` 첫 publish** + repo public 전환은 v1.0 cut과
       합본. 사용자 `cargo login` 1회 후 publish 가능.
 
-### v1.0 (Befunge dialect 벗어나기) ✅ — 정식 cut 완료
+### v1.0 (정체성 확립) ✅ — 정식 cut 완료
 
 **의미론**: **F (풍속) + D (IP 충돌 merge)** 둘 다 채택. 둘 다 additive ·
 직교; 풍속이 만든 race 패턴이 충돌 의미론과 맞물림. 정식 명세는 SPEC

@@ -10,7 +10,7 @@ repository = "https://github.com/sisobus/windy"
 documentation = "https://github.com/sisobus/windy/blob/main/SPEC.md"
 readme = "README.md"
 license = "MIT"
-keywords = ["esolang", "esoteric", "befunge", "interpreter", "2d"]
+keywords = ["esolang", "esoteric", "interpreter", "2d", "stack-based"]
 categories = ["command-line-utilities", "compilers"]
 # Patterns are gitignore-style, so leading `/` anchors to the package
 # root — without it, `README.md` would also pull in web/README.md and
