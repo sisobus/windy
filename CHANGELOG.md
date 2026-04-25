@@ -8,6 +8,24 @@ The crate on crates.io is `windy-lang`; the language and the installed
 binary are both `windy`. References to "the crate" below always mean
 `windy-lang` v$X.Y.Z`.
 
+## [Unreleased]
+
+### Added
+
+- **`examples/anthem.wnd`** — a multi-row wind-tunnel ASCII art
+  program that prints "code flows like wind". Demonstrates how
+  `≫` (GUST) plus the speed-2 movement rule lets an IP descend
+  through walls of `↘`/`↗` arrows as intermediate cells, landing
+  only on the print row in between.
+
+### Changed
+
+- **Web playground** drops the "v0 legacy" toggle and the
+  associated `--v0` framing. v1.0 semantics are the language;
+  the legacy gate stays available in the CLI/SPEC for
+  migrations and remains documented in SPEC §9, but the
+  in-browser surface no longer asks new users to think about it.
+
 ## [1.0.0] — 2026-04-25
 
 The first stable release. Wind speed and IP collision merge become

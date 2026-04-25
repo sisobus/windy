@@ -92,21 +92,6 @@ header h1 {
 
 .toolbar input[type="number"] { width: 9em; }
 
-/* Legacy v0 mode checkbox — give it an accent ring so it reads as a
-   "mode flag" rather than just another input. (Keeps the .v1-toggle
-   class name to avoid churning the markup; the semantics flipped in
-   v1.0 cut.) */
-.toolbar .v1-toggle {
-  padding: 0.15rem 0.5rem;
-  border: 1px dashed var(--accent);
-  border-radius: 4px;
-  font-weight: 500;
-}
-.toolbar .v1-toggle .hint {
-  font-size: 0.78rem;
-  color: var(--muted);
-}
-
 .toolbar button {
   padding: 0.35rem 1.2rem;
   background: var(--accent);

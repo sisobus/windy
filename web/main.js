@@ -126,12 +126,8 @@ const EXAMPLES = {
 
   sisobus
   ----------------------------------------------------------------------
-  Wind speed shaping the output: same source, two readings.
-
-  Run two ways (toggle "v0 legacy" in the toolbar to flip):
-
-    v1 (default): "WINDY"
-    v0 legacy:    "ID\\0\\0\\0"  (visually "ID" + 3 NULs)
+  Wind speed shaping the output. Run as-is and the program prints
+  WINDY.
 
   How: "YDNIW" pushes 5 codepoints in reverse, so 'W' lands on top
   of the stack. Then ≫ raises speed to 2, and the second half is a
@@ -142,13 +138,13 @@ const EXAMPLES = {
 
   At speed 2 the IP only lands on every other cell. The layout puts
   every $ on an odd-index cell and every , on an even-index cell, so
-  v1 hits all five \`,\`s and skips all five \`$\`s, draining the
-  stack cleanly into "WINDY". v0 has no speed mechanic — ≫ is
-  unknown, the IP advances cell-by-cell, and the alternating $/,
-  sequence drops a letter for every one it prints, so the visible
-  part of the output collapses to "ID".
+  the IP hits all five \`,\`s and flies over all five \`$\`s,
+  draining the stack cleanly into "WINDY". Without the speed boost
+  the IP would visit every cell and the alternating $/, sequence
+  would drop a letter for every one it prints — so wind speed is
+  literally what makes the message reach stdout.
 
-  Tick-by-tick (v1.0 default):
+  Tick-by-tick:
 
     tick  cell        op            speed   stack                    out
     ----  ----------  ------------  -----   ----------------------   ---
@@ -193,10 +189,10 @@ const EXAMPLES = {
   ----------------------------------------------------------------------
   IP collision merge as a runtime garbage collector.
 
-  In v1.0 (default) two IPs each build a stack of 5 codepoints, then
-  collide head-on at column 5 on tick 15 and vanish. The program
-  halts cleanly with exit 0 and empty stdout. The interesting part
-  is what happens on the way there.
+  Two IPs each build a stack of 5 codepoints, then collide head-on
+  at column 5 on tick 15 and vanish. The program halts cleanly with
+  exit 0 and empty stdout. The interesting part is what happens on
+  the way there.
 
   Source is one row, 12 cells:
 
@@ -230,31 +226,105 @@ const EXAMPLES = {
               Birth-order merge would yield [A,B,C,D,D,C,B,A,A,B]
               ("ABCDDCBAAB") — but the head-on kills it.
 
-  Why v0 fork-bombs
-  ------------------
-  Without the §3.8 collision pass (i.e. under "v0 legacy"), nothing
-  absorbs the IPs that share cell (5,0) on tick 15 — they pass
-  through each other and keep cycling. Worse: every visit to cell
-  (5,0) hits \`t\` and spawns *another* child. The population grows
-  exponentially. Use a max-steps cap (try 14) when running with
-  "v0 legacy" on, or the page will lock up.
-
-  This is the v1.0 collision merge earning its keep: it's not just
-  a semantic feature, it's a runtime garbage collector for IPs
-  that end up sharing a cell.
+  The merge pass earning its keep
+  -------------------------------
+  This isn't just a semantic feature — it's a runtime garbage
+  collector for IPs that end up sharing a cell. Without it, this
+  layout would fork-bomb: every visit to (5,0) hits \`t\` and
+  spawns another child, the population doubles every couple of
+  ticks, and the page locks up. The collision pass turns that
+  pathological case into a clean exit-0.
 
   Things to try:
 
-    - Step through under Debug mode (v1 default). Watch the IP count
-      in the state panel: 1 → 2 at tick 6, 2 → 0 at tick 15.
+    - Step through under Debug mode. Watch the IP count in the
+      state panel: 1 → 2 at tick 6, 2 → 0 at tick 15.
 
     - Cap with max-steps 14 to abort just before the collision and
-      inspect the two pre-merge stacks.
+      inspect the two pre-merge stacks side by side.
+`,
 
-    - Turn "v0 legacy" ON with max-steps 14. Same caps, but the IP
-      list is ordinary; without the collision pass nothing dies on
-      tick 15 — try a slightly larger cap and watch the count
-      explode (then back off before the page hangs).
+  anthem: `"dniw ekil swolf edoc"v
+                      ≫
+↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘
+                      ,
+↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗
+                      ,
+↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘
+                      ,
+↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗
+                      ,
+↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘
+                      ,
+↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗
+                      ,
+↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘
+                      ,
+↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗
+                      ,
+↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘
+                      ,
+↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗
+                      ,
+↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘
+                      ,
+↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗
+                      ,
+↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘
+                      ,
+↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗
+                      ,
+↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘
+                      ,
+↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗
+                      ,
+↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘
+                      ,
+↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗
+                      ,
+↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘
+                      ,
+↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗
+                      ,
+↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘
+                      @
+
+  sisobus
+  ----------------------------------------------------------------------
+  Output:  code flows like wind
+
+  How it works
+  ------------
+  The strmode segment "dniw ekil swolf edoc" pushes the message
+  reverse-bytewise onto the stack so that 'c' (the first character of
+  the forward output) lands on top. Then \`v\` redirects the IP south
+  and \`≫\` raises its speed to 2.
+
+  From there on, the IP descends column 22 at speed 2, advancing two
+  rows per tick. Only the destination cell decodes — intermediate
+  rows are skipped entirely (SPEC §3.7). The layout exploits this:
+
+    - Action rows hold a single \`,\` at column 22. Each one pops
+      the top of the stack and writes its codepoint as a Unicode
+      character.
+    - Decoration rows are walls of ↘ or ↗. The IP never decodes
+      them — they are intermediate cells the wind blows past — but
+      they are visible to the human reader, so the file looks like
+      the gusts and crosswinds that the program actually models.
+
+  Twenty \`,\` cells drain the stack; the final cell at column 22 of
+  the last row is \`@\`, lined up exactly with the speed-2 stride.
+
+  Things to notice
+  ----------------
+  - The decoration walls aren't decoration only because they're
+    pretty — they also serve as a hard stop for any speed-1
+    traversal. If the IP ever drops back to speed 1 (say, you put
+    a ≪ inline) the next cell it lands on is a wall arrow that
+    flings it off the print column entirely. In other words: at
+    the wrong speed, you don't print a corrupted message — you
+    don't print at all. Wind speed isn't decorative in this
+    program; it's the sole reason the message reaches stdout.
 `,
 
   blank: '',
@@ -291,7 +361,6 @@ const stdinEl = $('stdin');
 const pickerEl = $('example-picker');
 const seedEl = $('seed');
 const maxStepsEl = $('max-steps');
-const legacyModeEl = $('v0-mode');
 const versionBadge = $('version-badge');
 
 // Idle-mode toolbar + run output
@@ -351,7 +420,7 @@ async function handleRun() {
       stdinEl.value,
       parseOptionalBigInt(seedEl.value),
       parseOptionalBigInt(maxStepsEl.value),
-      !legacyModeEl.checked,
+      true,
     );
     stdoutEl.textContent = result.stdout;
     stderrEl.textContent = result.stderr;

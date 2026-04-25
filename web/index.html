@@ -26,14 +26,12 @@
         <option value="split">split.wnd</option>
         <option value="gust">gust.wnd · wind speed</option>
         <option value="storm">storm.wnd · IP collision</option>
+        <option value="anthem">anthem.wnd · wind tunnel</option>
         <option value="blank">(empty)</option>
       </select>
     </label>
     <label>Seed: <input id="seed" type="number" placeholder="(random)" min="0"></label>
     <label>Max steps: <input id="max-steps" type="number" placeholder="(unbounded)" min="1"></label>
-    <label class="v1-toggle" title="Run in v0.4 legacy mode: disable wind speed (≫/≪) and the IP collision merge pass. Off by default — full v1.0 semantics.">
-      <input id="v0-mode" type="checkbox"> v0 legacy <span class="hint">(no ≫/≪, no merge)</span>
-    </label>
     <button id="btn-run">Run</button>
     <button id="btn-debug">Debug</button>
     <button id="btn-share" class="secondary" title="Copy a permalink to this program">Copy link</button>

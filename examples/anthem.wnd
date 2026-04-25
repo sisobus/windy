@@ -1,0 +1,87 @@
+"dniw ekil swolf edoc"v
+                      ≫
+↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘
+                      ,
+↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗
+                      ,
+↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘
+                      ,
+↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗
+                      ,
+↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘
+                      ,
+↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗
+                      ,
+↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘
+                      ,
+↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗
+                      ,
+↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘
+                      ,
+↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗
+                      ,
+↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘
+                      ,
+↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗
+                      ,
+↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘
+                      ,
+↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗
+                      ,
+↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘
+                      ,
+↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗
+                      ,
+↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘
+                      ,
+↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗
+                      ,
+↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘
+                      ,
+↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗
+                      ,
+↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘
+                      @
+
+  sisobus
+  ----------------------------------------------------------------------
+  Output:  code flows like wind
+
+  How it works
+  ------------
+  The strmode segment "dniw ekil swolf edoc" pushes the message
+  reverse-bytewise onto the stack so that 'c' (the first character of
+  the forward output) lands on top. Then `v` redirects the IP south
+  and `≫` raises its speed to 2.
+
+  From there on, the IP descends column 22 at speed 2, advancing two
+  rows per tick. Only the destination cell decodes — intermediate
+  rows are skipped entirely (SPEC §3.7). The layout exploits this:
+
+    - Action rows (every other row, starting at row 3) hold a
+      single `,` at column 22. Each one pops the top of the stack
+      and writes its codepoint as a Unicode character.
+    - Decoration rows (the rows in between) are walls of ↘ or ↗.
+      The IP never decodes them — they are intermediate cells the
+      wind blows past — but they are visible to the human reader,
+      so the file looks like the gusts and crosswinds that the
+      program actually models.
+
+  Twenty `,` cells drain the stack; the final cell at column 22 of
+  the last row is `@`, lined up exactly with the speed-2 stride.
+
+  Things to notice
+  ----------------
+  - The decoration walls aren't decoration only because they're
+    pretty — they also serve as a hard stop for any
+    speed-1 traversal. If the IP ever drops back to speed 1
+    (say, you put a ≪ inline) the next cell it lands on is a
+    wall arrow that flings it off the print column entirely. In
+    other words: at the wrong speed, you don't print a corrupted
+    message — you don't print at all. Wind speed isn't decorative
+    in this program; it's the sole reason the message reaches stdout.
+
+  - You can step through it under `windy debug examples/anthem.wnd`
+    and watch the IP land on every odd-numbered row. The state
+    panel shows speed=2 from row 1 onward; the stdout fills one
+    character at a time as the stack drains.

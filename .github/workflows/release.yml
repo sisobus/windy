@@ -1,0 +1,113 @@
+name: Release to crates.io
+
+# Triggered by pushing a `vX.Y.Z` tag (e.g. `git tag v1.0.1 && git push
+# origin v1.0.1`). Confirms that the tag matches the crate version,
+# runs the test suite, then publishes to crates.io and creates a
+# matching GitHub Release.
+#
+# Tag scheme: `v$VERSION` exactly. The leading `v` is stripped before
+# comparing against `Cargo.toml`'s package.version, so a tag of
+# `v1.2.3` requires `version = "1.2.3"` in Cargo.toml.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release (e.g. v1.0.1). Must already exist on origin.'
+        required: true
+        type: string
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          fetch-depth: 0
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo registry + build
+        uses: Swatinem/rust-cache@v2
+
+      - name: Resolve tag and crate version
+        id: meta
+        run: |
+          # GITHUB_REF on a tag push looks like `refs/tags/v1.0.1`.
+          # workflow_dispatch supplies inputs.tag directly.
+          if [ -n "${{ inputs.tag }}" ]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${GITHUB_REF#refs/tags/}"
+          fi
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+            echo "::error::tag '$TAG' is not in vX.Y.Z form"
+            exit 1
+          fi
+          VERSION="${TAG#v}"
+          CARGO_VERSION=$(awk -F'"' '/^version *= *"/ { print $2; exit }' Cargo.toml)
+          if [ "$VERSION" != "$CARGO_VERSION" ]; then
+            echo "::error::tag $TAG ($VERSION) does not match Cargo.toml version $CARGO_VERSION"
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Run tests
+        run: cargo test --all-features --no-fail-fast
+
+      - name: cargo publish (dry-run)
+        run: cargo publish --dry-run
+
+      - name: cargo publish
+        run: cargo publish
+
+      - name: Extract changelog entry
+        id: changelog
+        run: |
+          # Pull the section for this version out of CHANGELOG.md so we
+          # can use it as the release notes. The section starts at
+          # `## [VERSION]` and ends at the next `## [` heading or EOF.
+          VERSION="${{ steps.meta.outputs.version }}"
+          if [ ! -f CHANGELOG.md ]; then
+            echo "no changelog" > /tmp/notes.md
+          else
+            awk -v ver="$VERSION" '
+              $0 ~ "^## \\[" ver "\\]" { capture=1; next }
+              capture && /^## \[/ { exit }
+              capture { print }
+            ' CHANGELOG.md > /tmp/notes.md
+            if [ ! -s /tmp/notes.md ]; then
+              echo "Released ${{ steps.meta.outputs.tag }}." > /tmp/notes.md
+            fi
+          fi
+          echo "notes_file=/tmp/notes.md" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Skip if the release already exists (re-running the workflow
+          # against an already-published tag should not error out).
+          TAG="${{ steps.meta.outputs.tag }}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "release $TAG already exists, skipping create"
+          else
+            gh release create "$TAG" \
+              --title "$TAG" \
+              --notes-file "${{ steps.changelog.outputs.notes_file }}"
+          fi
