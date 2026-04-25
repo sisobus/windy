@@ -8,35 +8,110 @@
 
 **Try it in your browser:** **[windy.sisobus.com](https://windy.sisobus.com)**
 
-Windy is a Befunge-98 dialect with a Unicode-first surface and a mandatory
-author-signature watermark. Programs live on an infinite 2D grid. An
-instruction pointer drifts across the grid in one of eight directions — the
-"winds" — and executes each cell it visits.
-
-The name comes from the Pokémon 윈디 (Arcanine). The directional-wind mechanic
-is a thematic pun.
-
 ```
-"!dlroW ,olleH",,,,,,,,,,,,,@
+"!dlroW ,olleH"↓
+        ↓      ←
+        →:#,_@
 ```
 
 ```
-$ windy run examples/hello.wnd
+$ windy run examples/hello_winds.wnd
 Hello, World!
 ```
 
-## Highlights
+The name comes from the Pokémon 윈디 (Arcanine, but read as "windy" in
+Korean). The wind-direction mechanic that the language is built around is a
+thematic pun on that name.
 
-- **33 opcodes**, including concurrent IPs via `t` (SPLIT).
-- **Turing complete** — infinite sparse grid, arbitrary-precision integers
-  (`BigInt` everywhere), and self-modifying code via `g` / `p`.
-- **Single Rust crate** powers the native CLI, the WASI distribution, and the
-  in-browser playground.
-- **Interactive debugger** — step through programs with a live view of the
-  grid, the IP, and the stack. Native (`windy debug`) and in-browser (Debug
-  mode in the playground).
-- **sisobus watermark** — embed `sisobus` anywhere in your source to sign
-  your program with an author banner.
+## Why Windy
+
+Windy is, in execution-model terms, a Befunge-98 derivative — same 2D grid,
+same stack-with-self-modification, same concurrent IPs. What's actually
+distinctive is the surface, the strictness, and the story:
+
+### The eight winds are the canonical surface
+
+A program is a flow diagram. The instruction pointer (the IP) drifts across
+the grid in one of **eight winds**, and Windy uses the Unicode arrows for
+those winds as primary glyphs:
+
+```
+→  ↗  ↑  ↖  ←  ↙  ↓  ↘
+```
+
+ASCII (`>`  `^`  `<`  `v`) survives as an alias for typing convenience, but
+the canonical printed form looks like a flow chart, with diagonals as
+first-class citizens — there's no `q` / `r` opcode you have to remember; if
+you can draw the path, you can encode it. The whole point is that you read
+the program by following the wind, not by parsing text left-to-right.
+
+### `~` (TURBULENCE) — let the weather decide
+
+Standard Befunge has `?` to pick a random of four directions. Windy's `~`
+picks uniformly from all eight winds, and it's seeded for reproducible runs
+via `--seed N`. It's a flavour opcode that fits the metaphor: sometimes you
+let the weather route the IP for you, but you can still pin the weather for
+testing.
+
+### The `sisobus` watermark is part of the spec
+
+Embed the substring `sisobus` anywhere in your source — even on a row the
+IP never visits — and the interpreter prints a signed author banner to
+stderr before the program runs:
+
+```
+╔═══════════════════════════════════════╗
+║  Windy v0.4.0                         ║
+║  Crafted by Kim Sangkeun (@sisobus)   ║
+╚═══════════════════════════════════════╝
+```
+
+[SPEC §8](SPEC.md#8-the-sisobus-watermark) makes this **non-optional**: a
+runtime that suppresses or alters the banner is non-conforming. It's the
+language's way of saying that grid programs are signed art, not throwaway
+text — and a hidden `sisobus` on a never-visited row is encouraged as a
+copyright line.
+
+### Tightenings the spec actually enforces
+
+Befunge-98 leaves a lot to the implementation. Windy commits, by spec:
+
+- **Stack values are arbitrary-precision integers.** `factorial.wnd` runs
+  through `10!` (3,628,800) without thinking; `100!` would too. No silent
+  i32 / i64 wraparound, no "implementation-defined" range.
+- **The grid is bi-infinite and sparse.** Negative `g` / `p` coordinates
+  are perfectly legal; cells you never write occupy zero memory.
+- **Concurrent IPs are tick-deterministic.** Each tick is one round-robin
+  pass over live IPs in birth order. New IPs born this tick wait until
+  the next; `@` halts only the executing IP. The same source, seed, and
+  stdin produce the same stdout — across the native CLI, the WASI binary,
+  and the browser playground.
+
+### One Rust crate, three deploys
+
+The same `windy` crate runs in three places:
+
+| target                       | what you get                                  |
+|------------------------------|-----------------------------------------------|
+| native (`cargo install`)     | a CLI: `windy run` / `windy debug` / `windy version` |
+| `wasm32-wasip1` (`wasmtime`) | portable `windy.wasm`, no Rust toolchain      |
+| `wasm32-unknown-unknown` (browser) | the playground at [windy.sisobus.com](https://windy.sisobus.com) |
+
+A shared conformance harness (`conformance/cases.json`) pins stdout
+byte-for-byte across all three targets — divergence breaks CI.
+
+### The honest framing
+
+Through the v0.x line, Windy is, semantically, "Befunge-98 with a
+Unicode-first surface, a mandatory author signature, and stricter
+promises about precision and grid storage." It's a *dialect*, not (yet) a
+fundamentally new language. v1.0 will adopt at least one semantic feature
+without precedent in the Befunge family — wind tension, time-aware grid,
+2D stack, IP collisions, or multi-token cells — and that's where Windy
+stops being "Befunge with a haircut." The candidates and the criteria for
+choosing one are catalogued in
+[SPEC §10](SPEC.md#10-reserved-for-future-versions) and
+[`docs/v1.0-design.md`](docs/v1.0-design.md).
 
 ## Install
 
