@@ -26,29 +26,31 @@ is a thematic pun on that name.
 ## Why Windy
 
 Windy is a tiny, deterministic, infinite-grid 2D language. A program
-is a flow chart you can read by eye: an instruction pointer drifts
-across the grid in one of eight winds, can speed up and skip past
-obstacles, can split into multiple pointers, and merges any pointers
-that crash into each other. The whole language is **35 opcodes** —
-no functions, no types, no standard library. Structure is emergent
-from layout.
+is a flow chart you can read by eye: an **instruction pointer** (IP)
+drifts across the grid in one of eight winds, can speed up and skip
+past obstacles, can split into multiple IPs, and merges any IPs that
+crash into each other. The whole language is **35 opcodes** — no
+functions, no types, no standard library. Structure is emergent from
+layout.
 
 ### The eight winds are the canonical surface
 
-A program is a flow diagram. The instruction pointer drifts across
-the grid in one of **eight winds**, and Windy uses the Unicode arrows
-for those winds as primary glyphs:
+A program is a flow diagram. The IP drifts across the grid in one of
+**eight winds**, and Windy uses the Unicode arrows for those winds
+as primary glyphs:
 
 ```
-→  ↗  ↑  ↖  ←  ↙  ↓  ↘
+   ↖   ↑   ↗
+   ←   ·   →
+   ↙   ↓   ↘
 ```
 
-ASCII (`>`  `^`  `<`  `v`) survives as an alias for typing
-convenience, but the canonical printed form looks like a flow chart,
-with diagonals as first-class citizens — there's no `q` / `r` opcode
-you have to remember; if you can draw the path, you can encode it.
-The whole point is that you read the program by following the wind,
-not by parsing text left-to-right.
+The four cardinals also accept ASCII aliases (`>` `^` `<` `v`) for
+typing convenience, but the canonical printed form looks like a flow
+chart, with diagonals as first-class citizens — there's no `q` / `r`
+opcode you have to remember; if you can draw the path, you can
+encode it. The whole point is that you read the program by following
+the wind, not by parsing text left-to-right.
 
 ### Wind has speed (`≫` / `≪`)
 
