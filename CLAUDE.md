@@ -136,7 +136,37 @@ cargo test --test conformance       # conformance만
       primary IP 접근자는 birth-order 최초 IP를 가리키도록 변경 (할트 시
       안전한 기본값). 웹 debugger UI가 다중 IP 셀을 모두 하이라이트.
 
-## v0.5+
+## v0.5 로드맵 — 배포 채널 확장
 
-SPEC §10 참고. 핑거프린트/opcode 확장, hot-loop tracing JIT,
+- [ ] **`wasm32-wasip1` 타겟**. `windy` 크레이트의 bin 타겟을 그대로 WASI로
+      빌드. 결과물 `windy.wasm`은 `wasmtime --dir=. windy.wasm run hello.wnd`
+      식으로 실행 가능. `wasm-bindgen`은 `cfg(target_os = "unknown")`으로만
+      활성화해 WASI 빌드에 끼지 않게.
+- [ ] CI에서 wasi 산출물도 빌드 → S3에 `windy.wasm`(WASI 버전)으로 함께
+      sync. 브라우저용 `web/pkg/windy_bg.wasm`과는 다른 경로.
+- [ ] `crates.io` publish 준비: `Cargo.toml` 메타데이터 점검, `LICENSE`
+      파일 추가, `cargo package --list` 확인.
+- [ ] repo public 전환 + README 뱃지 (CI 상태, crates.io 버전, 라이선스).
+
+## v1.0 로드맵 — Befunge dialect를 벗어나기
+
+지금 v0.4까지의 Windy는 의미론상 **Befunge-98의 변종**이다 (유니코드 풍향
+글리프 + sisobus 워터마크 + 임의 정밀도 강제 + sparse-grid 강제 정도가
+차별점). 메이저 버전을 1.0으로 올리는 시점에는 Befunge 가족에 없는
+의미론 하나를 도입해서 "사투리"가 아니라 "다른 언어"라고 단언할 수
+있는 상태로 만든다. 후보는 SPEC §10에 정리되어 있음:
+
+- 풍향 관성 (인접 풍향만 회전 가능 / 셀별 선호 풍향)
+- 시간을 3차원으로 (`(x, y, t)` 키 grid)
+- 2D 스택 (LIFO 대신 시각화되는 평면 스택)
+- IP 충돌 의미론 (병합/분열/소멸)
+- 다중 토큰 셀 (한 셀이 codepoint 튜플)
+
+이 중 하나를 v1.0의 design exercise로 고른다. 그때까지는 README/공개
+사이트에서 Windy를 *"a Befunge-98 dialect with a Unicode-first surface
+and a mandatory author-signature watermark"*로 정직하게 소개한다.
+
+## 그 이후
+
+SPEC §10 참고. 핑거프린트/opcode 확장 메커니즘, hot-loop tracing JIT,
 standard-library overlays.

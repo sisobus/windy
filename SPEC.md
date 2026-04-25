@@ -309,10 +309,47 @@ programs remain forward-compatible when they ship:
   replaces the "WAT AOT compiler" plan that v0.1's `wasm.py` stopgap
   gestured at — per-program AOT is not needed once the interpreter
   itself ships as WebAssembly.
+- **WASI distribution channel (v0.5).** The Rust crate also targets
+  `wasm32-wasip1`, producing a portable `windy.wasm` runnable under any
+  WASI host (`wasmtime`, `wasmer`, etc.) with `--dir=.` for filesystem
+  access. The same artifact is published next to the browser bundle
+  on the static-host origin.
 - **Fingerprints / language extensions** — v0.5+.
 - **Tracing JIT for hot loops** — v0.5+.
 - **Standard-library overlays** (pre-written grid regions loaded by name) —
   v0.6+.
+- **Windy v1.0 — semantic distinction.** Through the v0.x line, Windy
+  is, in execution-model terms, Befunge-98 with Unicode arrow glyphs
+  and a mandatory `sisobus` watermark; aside from the watermark and
+  some tightenings (mandatory BigInt, mandatory bi-infinite sparse
+  grid), the semantics are a strict subset of Funge-98. To stop being
+  "a Befunge dialect" by the time the major version turns over, v1.0
+  will adopt **at least one** semantic feature without precedent in
+  the Befunge family. Candidate directions, captured here so the
+  selection is a deliberate decision rather than the loudest issue
+  the day the cut is made:
+    - **Wind tension / inertia** — direction changes obey a graph
+      over the eight winds (e.g. only adjacent rotations, or per-cell
+      preferred winds), so flow turns into a navigation problem
+      instead of a free-for-all.
+    - **Time-aware grid** — cells are keyed `(x, y, t)`. `p` may
+      write a future tick, `g` may read past ticks, enabling causal
+      puzzles foreign to a static 2D plane.
+    - **2D stack** — values live on a visible auxiliary plane that
+      grows by IP-relative direction rather than a 1D LIFO. push/pop
+      become geometrically meaningful.
+    - **IP collision semantics** — when two live IPs share a cell on
+      the same tick, they merge / fork / annihilate per a defined
+      rule, instead of independently passing through.
+    - **Cells as multi-token regions** — a cell may hold a finite
+      ordered tuple of codepoints; string mode operates inside the
+      tuple, decoupling source layout from token granularity.
+
+  Selecting one (or composing several) is the v1.0 design exercise.
+  Until then, README and the public site describe Windy as "a
+  Befunge-98 dialect with a Unicode-first surface and a mandatory
+  author-signature watermark" — which is honest and does the
+  language no harm.
 
 Implementations MAY define experimental opcodes outside the 33 listed here,
 but MUST gate them behind an explicit opt-in flag to preserve portability.

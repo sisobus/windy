@@ -60,6 +60,22 @@ windy version
 - `examples/hello.wnd` — straight-line "Hello, World!".
 - `examples/hello_winds.wnd` — 2D loop routing with the sisobus watermark.
 - `examples/fib.wnd` — first ten Fibonacci numbers, state stored via `g` / `p`.
+- `examples/stars.wnd` — 5-row star triangle via stack pre-load + counter loop.
+- `examples/factorial.wnd` — 1!..10!, demonstrating BigInt growth past i64.
+
+## Run via WASI (no Rust toolchain required)
+
+CI also publishes the interpreter as a WASI module at the same origin
+as the playground. Anything that speaks WASI preview1 (`wasmtime`,
+`wasmer`, Node `--experimental-wasi-unstable-preview1`) can run it:
+
+```bash
+curl -O https://<your-site>/windy.wasm
+wasmtime --dir=. windy.wasm run examples/hello.wnd
+```
+
+The WASI binary is the same Rust crate as the native CLI, so semantics
+are byte-identical with `cargo install`'d builds.
 
 ## Browser playground
 

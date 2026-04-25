@@ -10,7 +10,10 @@ pub mod opcodes;
 pub mod parser;
 pub mod vm;
 
-#[cfg(target_arch = "wasm32")]
+// wasm_api is the wasm-bindgen surface for the browser playground. The
+// WASI target (`wasm32-wasip1`) re-uses the same crate as a normal CLI
+// binary and must NOT pull wasm_api in.
+#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
 pub mod wasm_api;
 
 pub use debugger::debug_source;
