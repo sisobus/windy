@@ -122,86 +122,139 @@ const EXAMPLES = {
       \`t\`.
 `,
 
-  gust: `≫9.@@
+  gust: `"YDNIW"≫$,$,$,$,$,@@
 
   sisobus
   ----------------------------------------------------------------------
-  Wind speed (≫ GUST / ≪ CALM) demo. Default output is "0 ".
+  Wind speed shaping the output: same source, two readings.
 
-  Toggle the "v0 legacy" checkbox to compare:
+  Run two ways (toggle "v0 legacy" in the toolbar to flip):
 
-    v1 (default): "0 " — ≫ raises speed to 2, the digit 9 is SKIPPED,
-                  and \`.\` finds an empty stack (underflow → 0).
-    v0 legacy:    "9 " + a one-time "unknown glyph ≫" warning on stderr.
+    v1 (default): "WINDY"
+    v0 legacy:    "ID\\0\\0\\0"  (visually "ID" + 3 NULs)
 
-  Tick by tick (v1.0):
+  How: "YDNIW" pushes 5 codepoints in reverse, so 'W' lands on top
+  of the stack. Then ≫ raises speed to 2, and the second half is a
+  1D obstacle course of $/, pairs:
 
-    cell        op                            speed   IP after move
-    ----        --------------------------    -----   -------------
-    (0,0) ≫     GUST: speed += 1               2      (2,0)
-    (1,0) 9     SKIPPED (intermediate)         —      —
-    (2,0) .     pop empty stack → "0 "         2      (4,0)
-    (3,0) @     SKIPPED (intermediate)         —      —
-    (4,0) @     HALT                           —      —
+      $   DROP    — tosses the top
+      ,   PUT_CHR — pops the top and writes its codepoint as a char
 
-  Notes:
+  At speed 2 the IP only lands on every other cell. The layout puts
+  every $ on an odd-index cell and every , on an even-index cell, so
+  v1 hits all five \`,\`s and skips all five \`$\`s, draining the
+  stack cleanly into "WINDY". v0 has no speed mechanic — ≫ is
+  unknown, the IP advances cell-by-cell, and the alternating $/,
+  sequence drops a letter for every one it prints, so the visible
+  part of the output collapses to "ID".
 
-    - At speed N the IP advances N cells per tick; only the
-      destination cell decodes — intermediate cells are not even
-      read for unknown-glyph warnings or string-mode toggles.
-    - ≪ (CALM) at speed 1 is a runtime trap (exit 134). It's a
-      design choice: ≪ has a sharp edge instead of a silent clamp.
+  Tick-by-tick (v1.0 default):
+
+    tick  cell        op            speed   stack                    out
+    ----  ----------  ------------  -----   ----------------------   ---
+     1    (0)  "      strmode on    1       []                       —
+     2    (1)  Y      push 89       1       [89]                     —
+     3    (2)  D      push 68       1       [89,68]                  —
+     4    (3)  N      push 78       1       [89,68,78]               —
+     5    (4)  I      push 73       1       [89,68,78,73]            —
+     6    (5)  W      push 87       1       [89,68,78,73,87]         —
+     7    (6)  "      strmode off   1       (no change)              —
+     8    (7)  ≫      speed += 1    2       (no change)              —
+     9    (9)  ,      pop 87, putc  2       [89,68,78,73]            W
+    10    (11) ,      pop 73, putc  2       [89,68,78]               I
+    11    (13) ,      pop 78, putc  2       [89,68]                  N
+    12    (15) ,      pop 68, putc  2       [89]                     D
+    13    (17) ,      pop 89, putc  2       []                       Y
+    14    (19) @      HALT          —       []                       —
+
+  Ticks 9–13 advance by 2 columns each: the IP lands on columns 9,
+  11, 13, 15, 17 — exactly the \`,\` cells. The \`$\` cells at
+  columns 8, 10, 12, 14, 16 are intermediate cells the IP flies
+  over without decoding (SPEC §3.7).
+
+  Things to play with:
+
+    - Replace ≫ with ≫≫ to push speed to 3. The IP now lands on
+      columns 10, 13, 16, 19, ... none of which carry \`,\`, so v1
+      prints nothing and falls into the trailing \`@@\`.
+
+    - Add a ≪ between two of the \`,\`s. At speed 2 the IP lands on
+      ≪, drops to speed 1, and starts traversing every cell again
+      — half the output is "WINDY"-style sampled, half is v0-style
+      "$,$,$,..." mangled.
+
+    - Trace under Debug mode and watch the \`speed\` row in the
+      state panel jump from 1 to 2 the moment the IP visits ≫.
 `,
 
-  storm: `→t←@
+  storm: `→"AB"t"CD"←@
 
   sisobus
   ----------------------------------------------------------------------
-  IP collision (merge) demo, head-on case.
+  IP collision merge as a runtime garbage collector.
 
-  Default v1.0 semantics: output is empty and the program halts
-  cleanly with exit 0. The interesting part is what happens on the
-  way there.
+  In v1.0 (default) two IPs each build a stack of 5 codepoints, then
+  collide head-on at column 5 on tick 15 and vanish. The program
+  halts cleanly with exit 0 and empty stdout. The interesting part
+  is what happens on the way there.
 
-  Tick by tick on row 0:
+  Source is one row, 12 cells:
 
-    tick  IP#0 cell    IP#0 effect              IP#1 cell  IP#1 effect
-    ----  ----------   ----------------------   ---------  ------------------
-     1    (0,0) →      dir = east                  —       not yet alive
-                       advance → (1,0)
-     2    (1,0) t      SPLIT: spawn IP#1 at        —       (born this tick,
-                       (0,0) going west;                   runs from tick 3)
-                       advance → (2,0)
-     3    (2,0) ←      dir = west                  (0,0) → dir = east
-                       advance → (1,0)             advance → (1,0)
-     ↓ end-of-tick collision pass: both IPs at (1,0) ↓
-              direction sum: (-1, 0) + (+1, 0) = (0, 0)
-              "head-on storm cancels itself" — merged IP dies.
-     4    (no live IPs — program halts)
+      → " A B " t " C D " ← @
+      0 1 2 3 4 5 6 7 8 9 10 11
 
-  The collision rule (SPEC §3.8 IP Collision):
+  Tick-by-tick (v1.0 default):
 
-    1. After every tick's movement step, group live IPs by (x, y).
-    2. For each group of two-or-more, sort by birth order.
-    3. Merge oldest-first into a single IP at that cell:
-         stack    : concat in birth order, oldest at bottom
-         direction: per-axis vector sum, clipped to {-1, 0, +1}
-                    if the sum is (0, 0) → merged IP dies
-         speed    : max of constituents
-         strmode  : forced off
-    4. Remove the absorbed IPs from the live list.
+    tick  IP0 cell  IP0 effect                   IP1 cell  IP1 effect
+    ----  --------  ---------------------------  --------  -----------------
+     1    (0,0)→    set east; → (1,0)            —         not yet alive
+     2    (1,0)"    strmode on; → (2,0)          —
+     3    (2,0)A    push 65; → (3,0)             —
+     4    (3,0)B    push 66; → (4,0)             —
+     5    (4,0)"    strmode off; → (5,0)         —
+     6    (5,0)t    SPLIT IP1 at (4,0) west;     —         (born this tick,
+                    → (6,0)                                  runs from tick 7)
+     7    (6,0)"    strmode on; → (7,0)          (4,0)"    strmode on; → (3,0)
+     8    (7,0)C    push 67; → (8,0)             (3,0)B    push 66; → (2,0)
+     9    (8,0)D    push 68; → (9,0)             (2,0)A    push 65; → (1,0)
+    10    (9,0)"    strmode off; → (10,0)        (1,0)"    strmode off; → (0,0)
+    11    (10,0)←   set west; → (9,0)            (0,0)→    set east; → (1,0)
+    12    (9,0)"    strmode on; → (8,0)          (1,0)"    strmode on; → (2,0)
+    13    (8,0)D    push 68 again; → (7,0)       (2,0)A    push 65 again; → (3,0)
+    14    (7,0)C    push 67 again; → (6,0)       (3,0)B    push 66 again; → (4,0)
+    15    (6,0)"    strmode off; → (5,0)         (4,0)"    strmode off; → (5,0)
+       ↓ end-of-tick collision: both IPs at (5,0) ↓
+              IP0 dir (-1,0) + IP1 dir (1,0) = (0,0) — head-on, dies.
+              IP0 stack [65,66,67,68,68,67]  ("ABCDDC")
+              IP1 stack [66,65,65,66]        ("BAAB")
+              Birth-order merge would yield [A,B,C,D,D,C,B,A,A,B]
+              ("ABCDDCBAAB") — but the head-on kills it.
+
+  Why v0 fork-bombs
+  ------------------
+  Without the §3.8 collision pass (i.e. under "v0 legacy"), nothing
+  absorbs the IPs that share cell (5,0) on tick 15 — they pass
+  through each other and keep cycling. Worse: every visit to cell
+  (5,0) hits \`t\` and spawns *another* child. The population grows
+  exponentially. Use a max-steps cap (try 14) when running with
+  "v0 legacy" on, or the page will lock up.
+
+  This is the v1.0 collision merge earning its keep: it's not just
+  a semantic feature, it's a runtime garbage collector for IPs
+  that end up sharing a cell.
 
   Things to try:
 
-    - Turn the "v0 legacy" checkbox ON and Run. The same source still
-      SPLITs (\`t\` is in v0.4) but no collision pass runs — the two
-      IPs pass through each other at (1,0) and drift forever. Use a
-      max-steps cap so the page doesn't lock up.
+    - Step through under Debug mode (v1 default). Watch the IP count
+      in the state panel: 1 → 2 at tick 6, 2 → 0 at tick 15.
 
-    - To watch a non-fatal merge, design a layout where the two
-      IPs arrive at the same cell with PERPENDICULAR directions.
-      Their vector sum is (±1, ±1) — a diagonal — and the merged
-      IP survives, carrying the concatenated stacks.
+    - Cap with max-steps 14 to abort just before the collision and
+      inspect the two pre-merge stacks.
+
+    - Turn "v0 legacy" ON with max-steps 14. Same caps, but the IP
+      list is ordinary; without the collision pass nothing dies on
+      tick 15 — try a slightly larger cap and watch the count
+      explode (then back off before the page hangs).
 `,
 
   blank: '',

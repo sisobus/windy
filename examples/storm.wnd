@@ -1,31 +1,63 @@
-→t←@
+→"AB"t"CD"←@
 
   sisobus
   ----------------------------------------------------------------------
-  IP collision (merge) demo, head-on case (SPEC §3.8).
+  IP collision merge as a runtime garbage collector.
 
-  Run with:
+  Run two ways:
 
-      windy run examples/storm.wnd
+      windy run                 examples/storm.wnd  →  exit 0, empty stdout
+      windy run --v0 --max-steps 12 examples/storm.wnd
+                                                    →  exit 124, empty stdout
+      (DO NOT run with --v0 unbounded — see "Why v0 fork-bombs" below.)
 
-  Output is empty and the program halts cleanly with exit 0. The
-  interesting part is what happens on the way there.
+  The source is a one-row 12-cell program. Two IPs build complementary
+  stacks ("CDDC" and "BAAB") before colliding head-on at column 4. In
+  v1.0 the SPEC §3.8 collision pass spots them at the same cell on the
+  same tick, computes their direction sum (-1, 0) + (1, 0) = (0, 0)
+  ("head-on storm cancels itself"), and removes them both. The live
+  IP list empties → program halts cleanly.
 
-  Tick by tick on row 0:
+  Tick-by-tick (v1.0 default):
 
-    tick  IP#0 cell    IP#0 effect              IP#1 cell  IP#1 effect
-    ----  ----------   ----------------------   ---------  ------------------
-     1    (0,0) →      dir = east                  —       not yet alive
-                       advance → (1,0)
-     2    (1,0) t      SPLIT: spawn IP#1 at        —       (born this tick,
-                       (0,0) going west;                   runs from tick 3)
-                       advance → (2,0)
-     3    (2,0) ←      dir = west                  (0,0) → dir = east
-                       advance → (1,0)             advance → (1,0)
-     ↓ end-of-tick collision pass: both IPs at (1,0) ↓
-              direction sum: (-1, 0) + (+1, 0) = (0, 0)
-              "head-on storm cancels itself" — merged IP dies.
-     4    (no live IPs — program halts)
+    tick  IP0 cell  IP0 effect                   IP1 cell  IP1 effect
+    ----  --------  ---------------------------  --------  -----------------
+     1    (0,0)→    set east; → (1,0)            —         not yet alive
+     2    (1,0)"    strmode on; → (2,0)          —
+     3    (2,0)A    push 65; → (3,0)             —
+     4    (3,0)B    push 66; → (4,0)             —
+     5    (4,0)"    strmode off; → (5,0)         —
+     6    (5,0)t    SPLIT IP1 at (4,0) west      —         (born this tick,
+                    speed 1, empty stack;                    runs from tick 7)
+                    → (6,0)
+     7    (6,0)"    strmode on; → (7,0)          (4,0)"    strmode on; → (3,0)
+     8    (7,0)C    push 67; → (8,0)             (3,0)B    push 66; → (2,0)
+     9    (8,0)D    push 68; → (9,0)             (2,0)A    push 65; → (1,0)
+    10    (9,0)"    strmode off; → (10,0)        (1,0)"    strmode off; → (0,0)
+    11    (10,0)←   set west; → (9,0)            (0,0)→    set east; → (1,0)
+    12    (9,0)"    strmode on; → (8,0)          (1,0)"    strmode on; → (2,0)
+    13    (8,0)D    push 68 again; → (7,0)       (2,0)A    push 65 again; → (3,0)
+    14    (7,0)C    push 67 again; → (6,0)       (3,0)B    push 66 again; → (4,0)
+    15    (6,0)"    strmode off; → (5,0)         (4,0)"    strmode off; → (5,0)
+       ↓ end-of-tick collision pass: both IPs at (5,0) ↓
+              IP0 dir (-1,0), IP1 dir (1,0). Sum (0,0) ⇒ head-on.
+              IP0 stack [65,66,67,68,68,67]  (codepoints "ABCDDC")
+              IP1 stack [66,65,65,66]        (codepoints "BAAB")
+              The merge would have produced stack
+                [65,66,67,68,68,67,66,65,65,66]  ⇒ "ABCDDCBAAB"
+              (birth-order concat: oldest at bottom) but dies anyway.
+              Both IPs removed. Program halts.
+
+  IP0 walked through "AB" once on the way east, hit `t`, kept going
+  east through "CD", bounced off `←`, then revisited "DC" going back
+  west — picking up "D" and "C" a second time before the collision.
+  Stack ends up as [A,B,C,D,D,C] = "ABCDDC". IP1 did the symmetric
+  thing on the western side: traversed "BA" going west (note: it
+  enters from the east edge of the segment, so it sees 'B' first
+  then 'A'), bounced off the `→` at column 0, came back through
+  "AB", arriving at the collision with stack [B,A,A,B] = "BAAB".
+  The birth-order concat that the merge pass would have produced
+  is visible above.
 
   The collision rule (SPEC §3.8 IP Collision):
 
@@ -39,22 +71,36 @@
          strmode  : forced off
     4. Remove the absorbed IPs from the live list.
 
+  Why v0 fork-bombs
+  ------------------
+  Without the collision pass (i.e. under --v0), nothing absorbs the
+  IPs that share cell (5,0) on tick 15 — they pass through each other
+  and keep cycling. Worse: every time an IP visits cell (5,0) it hits
+  `t` and spawns *another* child. By tick 15 the cycle re-enters `t`
+  for both IP0 and IP1 simultaneously, doubling the IP count. The
+  population grows exponentially — within ~25 ticks it's enough to
+  exhaust memory. So `--max-steps 12` is mandatory under --v0; the
+  run aborts with exit 124 before the cascade gets going.
+
+  This is the v1.0 collision merge earning its keep: it's not just a
+  semantic feature, it's a runtime garbage collector for IPs that
+  end up sharing a cell. Without it, programs that use `t` near a
+  cycling layout become fork bombs. v1 makes the same source safe.
+
   Things to try:
 
-    - Add --v0 to opt into the legacy gate. The same source still
-      SPLITs (`t` is in v0.4), but no collision pass runs — IP#0 and
-      IP#1 simply pass through each other at (1,0) and keep drifting
-      until --max-steps fires. Run `windy run --v0 --max-steps 50
-      examples/storm.wnd` to see the cap-out.
+    - Watch the stacks grow under `windy debug examples/storm.wnd`.
+      Step through ticks 1–14, watch IP0 and IP1 each build a stack
+      of 5 codepoints, and see them both vanish on tick 15.
 
-    - To watch a non-fatal merge, design a layout where the two IPs
-      arrive at the same cell with PERPENDICULAR directions. Their
-      vector sum is (±1, ±1) — a diagonal — and the merged IP
-      survives, carrying the concatenated stacks. Hint: route one IP
-      with arrows and another with a `t` SPLIT so they meet at right
-      angles.
+    - Slow down the cleanup with --max-steps cap:
+        windy run --max-steps 14 examples/storm.wnd       (still v1)
+      The IPs collide on tick 15, so a cap of 14 aborts before the
+      collision and the program exits 124 instead of 0. Useful for
+      the playground when you want to inspect mid-run state.
 
-    - Push values onto each IP before they collide. After a non-
-      fatal merge, `.` or `,` will pop from the combined stack —
-      birth-order concat means the older IP's values are at the
-      BOTTOM of the merged stack, the newer IP's values on top.
+    - For a non-fatal merge you'd need the converging IPs to arrive
+      with non-cancelling directions — e.g. one going south and one
+      going east, summing to (1, 1) southeast. That requires a 2D
+      layout with wind redirects (↘, ↙, ↗, ↖) post-`t`; head-on on
+      a single row always cancels.
