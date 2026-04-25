@@ -203,8 +203,22 @@ function renderDebug() {
   debugStdoutEl.textContent = session.stdout();
 }
 
+function freeSession() {
+  if (!session) return;
+  try {
+    session.free();
+  } catch (_) {
+    // wasm-bindgen throws if free() is called twice; ignore.
+  }
+  session = null;
+}
+
 function enterDebug() {
-  if (!wasmReady || mode !== 'idle') return;
+  if (!wasmReady) return;
+  // Tear down any lingering session so "Debug" always restarts cleanly,
+  // including the legitimate-but-easy-to-miss case where mode was left as
+  // 'debug' by a previous render error.
+  freeSession();
   try {
     session = new Session(
       sourceEl.value,
@@ -227,11 +241,7 @@ function enterDebug() {
 }
 
 function exitDebug() {
-  if (mode !== 'debug') return;
-  if (session) {
-    session.free();
-    session = null;
-  }
+  freeSession();
   mode = 'idle';
   toolbarIdle.hidden = false;
   toolbarDebug.hidden = true;

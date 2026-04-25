@@ -24,6 +24,18 @@
 
 * { box-sizing: border-box; }
 
+/*
+ * The browser UA sets `[hidden] { display: none }` at specificity (0,1,0),
+ * but `.toolbar { display: flex }` and `.output-section { display: flex }`
+ * below match that specificity and win by source order. Without this
+ * override the `hidden` attribute we toggle from JS has no visual effect,
+ * which stacks both toolbars / panels on top of each other and makes
+ * "click Debug twice" look broken because `mode === 'debug'` blocks the
+ * second click. !important keeps this a one-line guarantee no matter what
+ * display rule a future class adds.
+ */
+[hidden] { display: none !important; }
+
 body {
   margin: 0;
   padding: 1rem 2rem 2rem;
