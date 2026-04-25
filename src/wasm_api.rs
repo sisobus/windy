@@ -47,6 +47,7 @@ pub fn run(
     stdin: &str,
     seed: Option<u64>,
     max_steps: Option<u64>,
+    v1: Option<bool>,
 ) -> RunResult {
     let mut stdin_bytes = stdin.as_bytes();
     let mut stdout = Vec::<u8>::new();
@@ -56,6 +57,7 @@ pub fn run(
         RunOptions {
             seed,
             max_steps,
+            v1: v1.unwrap_or(false),
             stdin: &mut stdin_bytes,
             stdout: &mut stdout,
             stderr: &mut stderr,
@@ -90,20 +92,23 @@ pub struct Session {
 #[wasm_bindgen]
 impl Session {
     /// Construct a session and emit the sisobus banner to captured
-    /// stderr if the source text carries the watermark.
+    /// stderr if the source text carries the watermark. `v1` opts into
+    /// the v1.0 (proposal) semantics — wind speed + IP collision merge
+    /// — and is `null` (= off) by default for v0.4 compatibility.
     #[wasm_bindgen(constructor)]
     pub fn new(
         source: &str,
         stdin: &str,
         seed: Option<u64>,
         max_steps: Option<u64>,
+        v1: Option<bool>,
     ) -> Session {
         let (grid, scan_text) = parse(source);
         let mut stderr = Vec::<u8>::new();
         if detect(&scan_text) {
             let _ = writeln!(stderr, "{}", banner());
         }
-        let vm = Vm::new(grid, seed, max_steps);
+        let vm = Vm::with_v1(grid, seed, max_steps, v1.unwrap_or(false));
         Session {
             vm,
             stdin: stdin.as_bytes().to_vec(),
@@ -113,10 +118,10 @@ impl Session {
         }
     }
 
-    /// Execute a single VM tick. No-op if the session is already halted
-    /// or the step cap has been reached.
+    /// Execute a single VM tick. No-op if the session is already
+    /// halted, has trapped, or hit the step cap.
     pub fn step(&mut self) {
-        if self.vm.halted {
+        if self.vm.halted || self.vm.trapped {
             return;
         }
         if let Some(cap) = self.vm.max_steps {
@@ -131,10 +136,14 @@ impl Session {
         self.vm.steps += 1;
     }
 
-    /// Run until halt or the step cap fires. Returns 0 on clean halt,
-    /// 124 on `max_steps` abort.
+    /// Run until halt, trap, or the step cap. Returns 0 on clean halt,
+    /// 124 on `max_steps` abort, 134 on runtime trap (v1.0 CALM at
+    /// speed 1).
     pub fn run_to_halt(&mut self) -> i32 {
         loop {
+            if self.vm.trapped {
+                return 134;
+            }
             if self.vm.halted {
                 return 0;
             }
@@ -152,9 +161,36 @@ impl Session {
         self.vm.halted
     }
 
+    /// True if a runtime trap has fired (v1.0 CALM at speed 1).
+    /// `halted` may not yet be `true` when this flips — the trap is
+    /// surfaced at end-of-tick.
+    #[wasm_bindgen(getter)]
+    pub fn trapped(&self) -> bool {
+        self.vm.trapped
+    }
+
     #[wasm_bindgen(getter)]
     pub fn steps(&self) -> u64 {
         self.vm.steps
+    }
+
+    /// True when the v1.0 (proposal) semantics are enabled for this
+    /// session — useful for the playground to render the speed badge
+    /// and the new-opcode help only when relevant.
+    #[wasm_bindgen(getter)]
+    pub fn v1(&self) -> bool {
+        self.vm.v1
+    }
+
+    /// Speed of the IP at `ip_index` (birth order) as a decimal string;
+    /// JS coerces to BigInt. Returns `"1"` for v0.4 sessions or out-of-
+    /// range indices.
+    pub fn speed_for(&self, ip_index: u32) -> String {
+        self.vm
+            .ips
+            .get(ip_index as usize)
+            .map(|c| c.speed.to_string())
+            .unwrap_or_else(|| "1".to_string())
     }
 
     /// Number of live IPs (SPEC §3.5). `1` for single-IP programs;

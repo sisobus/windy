@@ -1,0 +1,34 @@
+{
+  "comment": "Goldens for SPEC § Pre-release: v1.0 (proposal). Loaded by tests/conformance_v1.rs with v1 mode ON. Language-neutral — keep Rust-specific fields out of cases.",
+  "cases": [
+    {
+      "name": "gust_skips_intermediate_cell",
+      "comment": "≫ raises speed to 2; the digit '9' at column 1 is skipped, so '.' pops an underflow 0.",
+      "source": "≫9.@@",
+      "expected_stdout": "0 ",
+      "expected_exit": 0
+    },
+    {
+      "name": "gust_calm_full_cycle_returns_to_speed_1",
+      "comment": "Speed goes 1 → 2 → 1; the 7 ends up pushed and printed normally.",
+      "source": "≫.≪.7.@",
+      "expected_stdout": "0 7 ",
+      "expected_exit": 0
+    },
+    {
+      "name": "calm_at_speed_one_traps_134",
+      "comment": "CALM with speed already 1 is a runtime trap. Program aborts with exit 134; stderr names the trap.",
+      "source": "≪@",
+      "expected_stdout": "",
+      "expected_exit": 134,
+      "expected_stderr_contains": ["calm in still air"]
+    },
+    {
+      "name": "double_gust_advances_at_speed_3",
+      "comment": "First ≫ raises speed to 2 → IP jumps from (0,0) to (2,0)=second ≫. Second ≫ raises speed to 3 → IP jumps from (2,0) to (5,0)=@. Halts cleanly with no output.",
+      "source": "≫.≫..@",
+      "expected_stdout": "",
+      "expected_exit": 0
+    }
+  ]
+}

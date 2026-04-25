@@ -24,7 +24,7 @@ use num_traits::{One, ToPrimitive, Zero};
 use rand::seq::SliceRandom;
 use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::io::{Read, Write};
 
 const WINDS: [(i64, i64); 8] = [
@@ -47,6 +47,12 @@ const STR_QUOTE: u32 = 0x22;
 pub enum ExitCode {
     Ok,
     MaxSteps,
+    /// Runtime trap (e.g. CALM at speed 1 under v1.0). Per the v1.0
+    /// proposal in SPEC § *Pre-release: v1.0 (proposal)*, traps abort
+    /// the program with a non-zero exit code; we use 134 (matches the
+    /// POSIX SIGABRT convention) so it's distinguishable from `--max-
+    /// steps`'s 124 and from a normal halt.
+    Trap,
 }
 
 impl ExitCode {
@@ -54,6 +60,7 @@ impl ExitCode {
         match self {
             ExitCode::Ok => 0,
             ExitCode::MaxSteps => 124,
+            ExitCode::Trap => 134,
         }
     }
 }
@@ -63,6 +70,11 @@ impl ExitCode {
 pub struct RunOptions<'a> {
     pub seed: Option<u64>,
     pub max_steps: Option<u64>,
+    /// Enable the v1.0 (proposal) semantics: wind speed (`≫`/`≪`) and
+    /// IP collision (merge). Defaults to `false` — clients that want
+    /// strict v0.4 behavior can construct `RunOptions` with `..` + the
+    /// `Default` impl below.
+    pub v1: bool,
     pub stdin: &'a mut dyn Read,
     pub stdout: &'a mut dyn Write,
     pub stderr: &'a mut dyn Write,
@@ -77,8 +89,13 @@ pub struct IpContext {
     pub strmode: bool,
     /// Marked by `@`; the main loop removes halted IPs at the end of
     /// the tick so other IPs can still observe this IP's position
-    /// during the same tick.
+    /// during the same tick. Also used by the v1.0 collision pass to
+    /// mark absorbed and head-on-cancelled IPs for end-of-tick removal.
     pub halted: bool,
+    /// v1.0 wind speed — strictly positive; `1` reproduces v0.4
+    /// movement. Carried as `BigInt` to match the language's
+    /// unbounded-arithmetic promise (SPEC §2 #4).
+    pub speed: BigInt,
 }
 
 impl IpContext {
@@ -88,6 +105,7 @@ impl IpContext {
             stack: Vec::new(),
             strmode: false,
             halted: false,
+            speed: BigInt::one(),
         }
     }
 }
@@ -106,12 +124,34 @@ pub struct Vm {
     /// live IP list — SPEC §3.6).
     pub steps: u64,
     pub max_steps: Option<u64>,
+    /// v1.0 (proposal) opt-in: wind speed + IP collision merge. When
+    /// off, `Op::Gust`/`Op::Calm` are treated as Unknown (NOP +
+    /// one-time warning) and no collision pass runs. SPEC §
+    /// *Pre-release: v1.0 (proposal)*.
+    pub v1: bool,
+    /// Set when a runtime trap occurs (currently only CALM-at-speed-1
+    /// in v1 mode). The main loop returns `ExitCode::Trap` after the
+    /// current tick completes.
+    pub trapped: bool,
     rng: ChaCha8Rng,
     warned: HashSet<u32>,
 }
 
 impl Vm {
     pub fn new(grid: Grid, seed: Option<u64>, max_steps: Option<u64>) -> Self {
+        Self::with_v1(grid, seed, max_steps, false)
+    }
+
+    /// Construct a `Vm` with the v1.0 proposal semantics enabled or
+    /// disabled. `Vm::new` is `with_v1(.., false)`. Prefer this ctor
+    /// when the caller has an explicit user opt-in to surface (CLI
+    /// flag, browser toggle).
+    pub fn with_v1(
+        grid: Grid,
+        seed: Option<u64>,
+        max_steps: Option<u64>,
+        v1: bool,
+    ) -> Self {
         let rng = match seed {
             Some(s) => ChaCha8Rng::seed_from_u64(s),
             None => ChaCha8Rng::from_entropy(),
@@ -123,6 +163,8 @@ impl Vm {
             halted: false,
             steps: 0,
             max_steps,
+            v1,
+            trapped: false,
             rng,
             warned: HashSet::new(),
         }
@@ -149,6 +191,9 @@ impl Vm {
             }
             self.step(stdin, stdout, stderr);
             self.steps += 1;
+            if self.trapped {
+                return ExitCode::Trap;
+            }
         }
         ExitCode::Ok
     }
@@ -156,6 +201,8 @@ impl Vm {
     /// Execute one full tick: every live IP takes one step, in birth
     /// order. IPs spawned via `t` during this tick wait until the next
     /// tick; IPs that executed `@` are removed at the end of this tick.
+    /// In v1.0 mode, after movement the runtime additionally runs a
+    /// collision pass that merges any IPs that share a cell.
     pub fn step(
         &mut self,
         stdin: &mut dyn Read,
@@ -164,10 +211,6 @@ impl Vm {
     ) {
         let n = self.ips.len();
         for i in 0..n {
-            // Skip IPs that were halted earlier in this tick — should
-            // not happen under current semantics (halted IPs are removed
-            // only at end-of-tick, and can't be re-marked mid-tick),
-            // but cheap defense-in-depth.
             if self.ips[i].halted {
                 continue;
             }
@@ -183,16 +226,92 @@ impl Vm {
                 self.execute(i, op, operand, &cell, stdin, stdout, stderr);
             }
             if !self.ips[i].halted {
-                self.ips[i].ip.advance();
+                if self.v1 {
+                    self.advance_with_speed(i);
+                } else {
+                    self.ips[i].ip.advance();
+                }
             }
         }
-        // End of tick: promote spawns, drop halted IPs.
+        // End of tick: promote spawns, then (v1) collide, then drop halted.
         if !self.pending_spawns.is_empty() {
             self.ips.extend(self.pending_spawns.drain(..));
+        }
+        if self.v1 {
+            self.collision_pass();
         }
         self.ips.retain(|c| !c.halted);
         if self.ips.is_empty() {
             self.halted = true;
+        }
+    }
+
+    /// v1.0 movement: `pos += dir × speed`, only the destination cell
+    /// will execute on the next tick (intermediate cells skipped).
+    /// Speed is BigInt; we clamp to `i64::MAX` for the i64 coordinate
+    /// arithmetic — consistent with the pragmatic i64 coords noted in
+    /// `grid.rs`. A speed beyond i64::MAX simply launches the IP into
+    /// the empty far field where every cell is space (NOP).
+    fn advance_with_speed(&mut self, i: usize) {
+        let speed_i64 = self.ips[i].speed.to_i64().unwrap_or(i64::MAX);
+        let dx = self.ips[i].ip.dx.saturating_mul(speed_i64);
+        let dy = self.ips[i].ip.dy.saturating_mul(speed_i64);
+        self.ips[i].ip.x = self.ips[i].ip.x.saturating_add(dx);
+        self.ips[i].ip.y = self.ips[i].ip.y.saturating_add(dy);
+    }
+
+    /// v1.0 collision pass: group live IPs by `(x, y)` and merge each
+    /// non-singleton group in birth order. Stack concatenation keeps
+    /// the oldest IP's stack at the bottom; direction is the per-axis
+    /// sum clipped to `{-1, 0, +1}` (sum of `(0, 0)` ⇒ merged IP dies);
+    /// speed is the max of the constituents; strmode resets to off.
+    /// Absorbed IPs are marked halted so the post-collision `retain`
+    /// drops them. SPEC § *Pre-release: v1.0 (proposal)* §IP Collision.
+    fn collision_pass(&mut self) {
+        let mut groups: HashMap<(i64, i64), Vec<usize>> = HashMap::new();
+        for (i, ctx) in self.ips.iter().enumerate() {
+            if ctx.halted {
+                continue;
+            }
+            groups
+                .entry((ctx.ip.x, ctx.ip.y))
+                .or_default()
+                .push(i);
+        }
+
+        for (_, indices) in groups {
+            if indices.len() < 2 {
+                continue;
+            }
+            // `indices` is in birth order because we iterated self.ips
+            // sequentially. The oldest IP is the survivor; later IPs
+            // are absorbed.
+            let survivor = indices[0];
+            let mut summed_dx: i64 = self.ips[survivor].ip.dx;
+            let mut summed_dy: i64 = self.ips[survivor].ip.dy;
+            let mut max_speed: BigInt = self.ips[survivor].speed.clone();
+            for &absorbed in &indices[1..] {
+                let stk = std::mem::take(&mut self.ips[absorbed].stack);
+                self.ips[survivor].stack.extend(stk);
+                summed_dx += self.ips[absorbed].ip.dx;
+                summed_dy += self.ips[absorbed].ip.dy;
+                if self.ips[absorbed].speed > max_speed {
+                    max_speed = self.ips[absorbed].speed.clone();
+                }
+                self.ips[absorbed].halted = true;
+            }
+            let cdx = summed_dx.signum();
+            let cdy = summed_dy.signum();
+            if cdx == 0 && cdy == 0 {
+                // Head-on storm: merged IP dies; absorbed stacks
+                // drop with it.
+                self.ips[survivor].halted = true;
+            } else {
+                self.ips[survivor].ip.dx = cdx;
+                self.ips[survivor].ip.dy = cdy;
+                self.ips[survivor].speed = max_speed;
+                self.ips[survivor].strmode = false;
+            }
         }
     }
 
@@ -224,6 +343,10 @@ impl Vm {
             Op::Trampoline => self.ips[i].ip.advance(),
             Op::Split => {
                 let here = self.ips[i].ip;
+                // v1.0: child inherits parent's speed at split time
+                // (SPEC § *Pre-release: v1.0*). For v0.4 the field is
+                // always 1, so the clone is harmless.
+                let parent_speed = self.ips[i].speed.clone();
                 let new_ctx = IpContext {
                     ip: Ip {
                         x: here.x - here.dx,
@@ -234,6 +357,7 @@ impl Vm {
                     stack: Vec::new(),
                     strmode: false,
                     halted: false,
+                    speed: parent_speed,
                 };
                 self.pending_spawns.push(new_ctx);
             }
@@ -353,6 +477,31 @@ impl Vm {
                     self.grid.put(xi, yi, v);
                 }
             }
+            Op::Gust => {
+                if !self.v1 {
+                    self.warn_unknown(cell, stderr);
+                    return;
+                }
+                self.ips[i].speed += BigInt::one();
+            }
+            Op::Calm => {
+                if !self.v1 {
+                    self.warn_unknown(cell, stderr);
+                    return;
+                }
+                if self.ips[i].speed <= BigInt::one() {
+                    let (x, y) = (self.ips[i].ip.x, self.ips[i].ip.y);
+                    let _ = writeln!(
+                        stderr,
+                        "windy: trap: calm in still air (CALM at speed 1, IP #{} at ({}, {}))",
+                        i, x, y
+                    );
+                    self.ips[i].halted = true;
+                    self.trapped = true;
+                    return;
+                }
+                self.ips[i].speed -= BigInt::one();
+            }
             Op::Unknown => self.warn_unknown(cell, stderr),
         }
     }
@@ -380,7 +529,7 @@ pub fn run_source(source: &str, opts: RunOptions) -> ExitCode {
     if detect(&scan_text) {
         let _ = writeln!(opts.stderr, "{}", banner());
     }
-    let mut vm = Vm::new(grid, opts.seed, opts.max_steps);
+    let mut vm = Vm::with_v1(grid, opts.seed, opts.max_steps, opts.v1);
     vm.run(opts.stdin, opts.stdout, opts.stderr)
 }
 
@@ -452,6 +601,7 @@ mod tests {
             RunOptions {
                 seed: Some(42),
                 max_steps: Some(1_000_000),
+                v1: false,
                 stdin: &mut stdin,
                 stdout: &mut stdout,
                 stderr: &mut stderr,
@@ -553,6 +703,7 @@ mod tests {
             RunOptions {
                 seed: Some(0),
                 max_steps: Some(3),
+                v1: false,
                 stdin: &mut stdin,
                 stdout: &mut stdout,
                 stderr: &mut stderr,
@@ -621,6 +772,7 @@ mod tests {
             RunOptions {
                 seed: Some(42),
                 max_steps: Some(50),
+                v1: false,
                 stdin: &mut s1,
                 stdout: &mut o1,
                 stderr: &mut e1,
@@ -634,6 +786,7 @@ mod tests {
             RunOptions {
                 seed: Some(42),
                 max_steps: Some(50),
+                v1: false,
                 stdin: &mut s2,
                 stdout: &mut o2,
                 stderr: &mut e2,
@@ -661,6 +814,7 @@ mod tests {
             RunOptions {
                 seed: Some(0),
                 max_steps: Some(50),
+                v1: false,
                 stdin: &mut stdin,
                 stdout: &mut stdout,
                 stderr: &mut stderr,
@@ -707,6 +861,7 @@ mod tests {
             RunOptions {
                 seed: Some(0),
                 max_steps: Some(40),
+                v1: false,
                 stdin: &mut stdin,
                 stdout: &mut stdout,
                 stderr: &mut stderr,
@@ -737,6 +892,7 @@ mod tests {
             RunOptions {
                 seed: Some(0),
                 max_steps: Some(40),
+                v1: false,
                 stdin: &mut stdin,
                 stdout: &mut stdout,
                 stderr: &mut stderr,
@@ -745,5 +901,252 @@ mod tests {
         // Cap fires because IP#1 is still wandering.
         assert_eq!(code, ExitCode::MaxSteps);
         assert_eq!(String::from_utf8(stdout).unwrap(), "5 ");
+    }
+
+    // ---------- v1.0 (proposal) tests ----------
+    //
+    // Wind-speed (≫/≪) and IP-collision-merge semantics from
+    // SPEC § *Pre-release: v1.0 (proposal)*. v1 mode is opt-in; v0
+    // companion tests confirm the additive promise.
+
+    use crate::parser::parse as parse_source;
+
+    fn run_v1(source: &str) -> (ExitCode, String, String) {
+        let mut stdin: &[u8] = b"";
+        let mut stdout = Vec::new();
+        let mut stderr = Vec::new();
+        let code = run_source(
+            source,
+            RunOptions {
+                seed: Some(0),
+                max_steps: Some(1_000),
+                v1: true,
+                stdin: &mut stdin,
+                stdout: &mut stdout,
+                stderr: &mut stderr,
+            },
+        );
+        (
+            code,
+            String::from_utf8(stdout).unwrap(),
+            String::from_utf8(stderr).unwrap(),
+        )
+    }
+
+    fn build_vm_v1(source: &str, max_steps: Option<u64>) -> Vm {
+        let (grid, _) = parse_source(source);
+        Vm::with_v1(grid, Some(0), max_steps, true)
+    }
+
+    #[test]
+    fn v1_gust_skips_intermediate_cell() {
+        // Layout: ≫9.@@  (positions 0..=4)
+        // Tick 1: ≫ at (0,0). speed→2. Advance 2 → (2,0)=`.`. The
+        //         `9` at (1,0) is SKIPPED — that's the whole point.
+        // Tick 2: `.` pops empty stack, prints "0 ". Advance 2 →
+        //         (4,0)=@.
+        // Tick 3: @ halts.
+        let (code, out, _) = run_v1("≫9.@@");
+        assert_eq!(code, ExitCode::Ok);
+        assert_eq!(out, "0 ");
+    }
+
+    #[test]
+    fn v0_gust_decodes_as_unknown_with_warning() {
+        // Without --v1, ≫ / ≪ are NOP+warning. The same source prints
+        // "9 " (the digit isn't skipped because speed is always 1).
+        let (code, out, err) = run("≫9.@@");
+        assert_eq!(code, ExitCode::Ok);
+        assert_eq!(out, "9 ");
+        assert!(err.contains("unknown glyph"));
+    }
+
+    #[test]
+    fn v1_calm_at_speed_one_traps() {
+        let (code, _, err) = run_v1("≪@");
+        assert_eq!(code, ExitCode::Trap);
+        assert_eq!(code.code(), 134);
+        assert!(err.contains("calm in still air"));
+    }
+
+    #[test]
+    fn v0_calm_just_warns_no_trap() {
+        let (code, _, err) = run("≪@");
+        assert_eq!(code, ExitCode::Ok);
+        assert!(err.contains("unknown glyph"));
+    }
+
+    #[test]
+    fn v1_calm_brings_speed_back_to_one() {
+        // Layout: ≫ . ≪ . @  (positions 0..=4)
+        // Tick 1: ≫ at (0,0). speed→2. Advance 2 → (2,0)=≪.
+        // Tick 2: ≪ at (2,0). speed→1. Advance 1 → (3,0)=`.`.
+        // Tick 3: `.` prints "0 ". Advance 1 → (4,0)=@.
+        // Tick 4: @ halts.
+        let (code, out, _) = run_v1("≫.≪.@");
+        assert_eq!(code, ExitCode::Ok);
+        assert_eq!(out, "0 ");
+    }
+
+    #[test]
+    fn v1_split_child_inherits_parent_speed() {
+        // Layout: ≫ space t @  (positions 0..=3)
+        // Tick 1: ≫ at (0,0). speed→2. Advance 2 → (2,0)=t.
+        // Tick 2: SPLIT at (2,0). Child born at (1,0) going west,
+        //         inheriting speed 2. Parent advances 2 → (4,0)=space.
+        let mut vm = build_vm_v1("≫ t @", Some(40));
+        let mut stdin: &[u8] = b"";
+        let mut stdout = Vec::new();
+        let mut stderr = Vec::new();
+        vm.step(&mut stdin, &mut stdout, &mut stderr);
+        assert_eq!(vm.ips[0].speed, BigInt::from(2));
+        vm.step(&mut stdin, &mut stdout, &mut stderr);
+        assert_eq!(vm.ips.len(), 2);
+        assert_eq!(vm.ips[1].speed, BigInt::from(2));
+        assert_eq!((vm.ips[1].ip.dx, vm.ips[1].ip.dy), (-1, 0));
+        assert_eq!((vm.ips[1].ip.x, vm.ips[1].ip.y), (1, 0));
+    }
+
+    #[test]
+    fn v1_collision_head_on_dies() {
+        // Hand-construct two IPs that collide head-on after movement.
+        let mut vm = build_vm_v1("    ", Some(40));
+        vm.ips[0].ip.x = 0;
+        vm.ips[0].ip.dx = 1;
+        vm.ips.push(IpContext {
+            ip: Ip { x: 2, y: 0, dx: -1, dy: 0 },
+            stack: Vec::new(),
+            strmode: false,
+            halted: false,
+            speed: BigInt::one(),
+        });
+        let mut stdin: &[u8] = b"";
+        let mut stdout = Vec::new();
+        let mut stderr = Vec::new();
+        vm.step(&mut stdin, &mut stdout, &mut stderr);
+        assert!(vm.halted, "head-on collision should leave no live IPs");
+    }
+
+    #[test]
+    fn v1_collision_concatenates_stacks_in_birth_order() {
+        let mut vm = build_vm_v1("    ", Some(2));
+        vm.ips[0].stack = vec![BigInt::from(1), BigInt::from(2)];
+        // IP#1 born south of (1,0), heading down — ends at (1,0)
+        // alongside IP#0's destination (1,0) coming from (0,0) east.
+        vm.ips.push(IpContext {
+            ip: Ip { x: 1, y: -1, dx: 0, dy: 1 },
+            stack: vec![BigInt::from(3), BigInt::from(4)],
+            strmode: false,
+            halted: false,
+            speed: BigInt::one(),
+        });
+        let mut stdin: &[u8] = b"";
+        let mut stdout = Vec::new();
+        let mut stderr = Vec::new();
+        vm.step(&mut stdin, &mut stdout, &mut stderr);
+        assert_eq!(vm.ips.len(), 1);
+        assert_eq!(
+            vm.ips[0].stack,
+            vec![
+                BigInt::from(1),
+                BigInt::from(2),
+                BigInt::from(3),
+                BigInt::from(4),
+            ],
+        );
+        // Direction sum: (1,0) + (0,1) = (1,1) → SE.
+        assert_eq!((vm.ips[0].ip.dx, vm.ips[0].ip.dy), (1, 1));
+    }
+
+    #[test]
+    fn v1_collision_takes_max_speed() {
+        let mut vm = build_vm_v1("    ", Some(2));
+        // IP#0 east speed 3 from (0,0) → ends at (3,0).
+        vm.ips[0].speed = BigInt::from(3);
+        // IP#1 south speed 5 from (3,-5) → ends at (3,0).
+        vm.ips.push(IpContext {
+            ip: Ip { x: 3, y: -5, dx: 0, dy: 1 },
+            stack: Vec::new(),
+            strmode: false,
+            halted: false,
+            speed: BigInt::from(5),
+        });
+        let mut stdin: &[u8] = b"";
+        let mut stdout = Vec::new();
+        let mut stderr = Vec::new();
+        vm.step(&mut stdin, &mut stdout, &mut stderr);
+        assert_eq!(vm.ips.len(), 1);
+        assert_eq!(vm.ips[0].speed, BigInt::from(5));
+    }
+
+    #[test]
+    fn v1_collision_resets_strmode() {
+        let mut vm = build_vm_v1("    ", Some(2));
+        vm.ips[0].strmode = true;
+        vm.ips.push(IpContext {
+            ip: Ip { x: 1, y: -1, dx: 0, dy: 1 },
+            stack: Vec::new(),
+            strmode: false,
+            halted: false,
+            speed: BigInt::one(),
+        });
+        let mut stdin: &[u8] = b"";
+        let mut stdout = Vec::new();
+        let mut stderr = Vec::new();
+        vm.step(&mut stdin, &mut stdout, &mut stderr);
+        assert_eq!(vm.ips.len(), 1);
+        assert!(!vm.ips[0].strmode);
+    }
+
+    #[test]
+    fn v0_no_collision_pass_runs() {
+        let (grid, _) = parse_source("    ");
+        let mut vm = Vm::with_v1(grid, Some(0), Some(2), false);
+        vm.ips.push(IpContext {
+            ip: Ip { x: 1, y: -1, dx: 0, dy: 1 },
+            stack: Vec::new(),
+            strmode: false,
+            halted: false,
+            speed: BigInt::one(),
+        });
+        let mut stdin: &[u8] = b"";
+        let mut stdout = Vec::new();
+        let mut stderr = Vec::new();
+        vm.step(&mut stdin, &mut stdout, &mut stderr);
+        // Both still alive, no merge.
+        assert_eq!(vm.ips.len(), 2);
+    }
+
+    #[test]
+    fn v1_three_ip_merge_birth_order() {
+        let mut vm = build_vm_v1("    ", Some(2));
+        // IP#0 east speed 1 from (0,0) → (1,0). Stack [1].
+        vm.ips[0].stack = vec![BigInt::from(1)];
+        // IP#1 east speed 2 from (-1,0) → (1,0). Stack [2].
+        vm.ips.push(IpContext {
+            ip: Ip { x: -1, y: 0, dx: 1, dy: 0 },
+            stack: vec![BigInt::from(2)],
+            strmode: false,
+            halted: false,
+            speed: BigInt::from(2),
+        });
+        // IP#2 south speed 1 from (1,-1) → (1,0). Stack [3].
+        vm.ips.push(IpContext {
+            ip: Ip { x: 1, y: -1, dx: 0, dy: 1 },
+            stack: vec![BigInt::from(3)],
+            strmode: false,
+            halted: false,
+            speed: BigInt::one(),
+        });
+        let mut stdin: &[u8] = b"";
+        let mut stdout = Vec::new();
+        let mut stderr = Vec::new();
+        vm.step(&mut stdin, &mut stdout, &mut stderr);
+        assert_eq!(vm.ips.len(), 1);
+        assert_eq!(
+            vm.ips[0].stack,
+            vec![BigInt::from(1), BigInt::from(2), BigInt::from(3)],
+        );
+        assert_eq!(vm.ips[0].speed, BigInt::from(2));
     }
 }

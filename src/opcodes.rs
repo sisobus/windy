@@ -3,7 +3,11 @@
 use num_bigint::BigInt;
 use num_traits::ToPrimitive;
 
-/// All 35 Windy opcodes plus the internal `Unknown` fallback for unrecognized glyphs.
+/// All Windy opcodes plus the internal `Unknown` fallback. v0.4 has 33
+/// opcodes; v1.0 (proposal — opt-in) adds GUST and CALM for the wind-
+/// speed mechanic. The new opcodes are decoded unconditionally; the VM
+/// gates them on its `v1` flag and treats them as Unknown (NOP + warning)
+/// when the flag is off.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Op {
     // Flow
@@ -27,7 +31,10 @@ pub enum Op {
     PutNum, PutChr, GetNum, GetChr,
     // Grid memory
     GridGet, GridPut,
-    // Fallback for glyphs outside the 34-op table
+    // v1.0 (proposal): wind speed
+    Gust,
+    Calm,
+    // Fallback for glyphs outside the op table
     Unknown,
 }
 
@@ -67,6 +74,8 @@ impl Op {
             Op::GetChr => "GET_CHR",
             Op::GridGet => "GRID_GET",
             Op::GridPut => "GRID_PUT",
+            Op::Gust => "GUST",
+            Op::Calm => "CALM",
             Op::Unknown => "UNKNOWN",
         }
     }
@@ -109,6 +118,8 @@ fn char_to_op(c: char) -> Option<Op> {
         '?' => Op::GetChr,
         'g' => Op::GridGet,
         'p' => Op::GridPut,
+        '≫' => Op::Gust,
+        '≪' => Op::Calm,
         _ => return None,
     })
 }
@@ -180,5 +191,13 @@ mod tests {
     fn decode_out_of_range_is_unknown() {
         let big = BigInt::from(u64::MAX) * BigInt::from(1_000_000);
         assert_eq!(decode_cell(&big), (Op::Unknown, 0));
+    }
+
+    #[test]
+    fn decode_v1_gust_calm() {
+        // v1.0 (proposal) opcodes — decoded unconditionally; the VM
+        // gates them on its `v1` flag.
+        assert_eq!(decode_cell(&bi('≫' as u32)), (Op::Gust, 0));
+        assert_eq!(decode_cell(&bi('≪' as u32)), (Op::Calm, 0));
     }
 }
