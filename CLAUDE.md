@@ -109,8 +109,13 @@ cargo test --test conformance       # conformance만
 - [x] 브라우저 디버거 UI: `Session` wasm API (step / run_to_halt /
       grid_slice / stack / 등) + Debug 모드 (그리드 뷰포트, 상태/스택/
       stdout 패널, Step / Continue / Exit, Enter/s/c/q 키바인딩).
-- [ ] GitHub Actions(또는 S3 업로드): push → wasm-pack build → 정적 번들
-      배포 자동화. (사용자 환경에서 별도 설정 예정.)
+- [x] GitHub Actions 자동 배포: `.github/workflows/deploy.yml` — push to
+      `main` → rust stable + wasm32 toolchain 설치 → `wasm-pack build
+      --target web --release --out-dir web/pkg` → `web/`를 S3에 sync
+      (`*.wasm` 제외 → `application/wasm` Content-Type으로 별도 `cp`) →
+      CloudFront invalidation `/*`. 필요한 repo secret: `AWS_ACCESS_KEY_ID`,
+      `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `AWS_S3_BUCKET`,
+      `CLOUDFRONT_DISTRIBUTION_ID`.
 
 ## v0.4 진행 상황 — 동시 IP (concurrent IPs)
 

@@ -1,0 +1,71 @@
+name: Deploy to S3
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
+      CLOUDFRONT_DISTRIBUTION_ID: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Cache Cargo registry + build
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install wasm-pack
+        uses: jetli/wasm-pack-action@v0.4.0
+        with:
+          version: 'v0.13.1'
+
+      - name: Build wasm package
+        run: wasm-pack build --target web --release --out-dir web/pkg
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Sync site assets to S3
+        run: |
+          if [ -z "$S3_BUCKET" ]; then
+            echo "S3 bucket secret (AWS_S3_BUCKET) is missing."
+            exit 1
+          fi
+          aws s3 sync web/ "s3://${S3_BUCKET}/" \
+            --delete \
+            --exclude "README.md" \
+            --exclude ".*" \
+            --exclude "*.wasm"
+
+      - name: Upload wasm with application/wasm Content-Type
+        run: |
+          # `aws s3 sync` would tag the .wasm file as
+          # application/octet-stream. Browsers won't stream-compile that,
+          # so re-upload it explicitly with the right MIME type.
+          aws s3 cp web/pkg/windy_bg.wasm "s3://${S3_BUCKET}/pkg/windy_bg.wasm" \
+            --content-type "application/wasm"
+
+      - name: Invalidate CloudFront cache
+        if: env.CLOUDFRONT_DISTRIBUTION_ID != ''
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \
+            --paths "/*"
