@@ -34,10 +34,16 @@ language surface to a single set of semantics. No new features.
 ### Changed
 
 - **`examples/anthem.wnd`** rewritten as a clockwise diagonal-
-  cornered spiral. The IP rides the perimeter at speed 2,
-  printing one character of "code flows like wind" per non-corner
-  cell, with `↘ ↙ ↖` corner glyphs visible in the source. The
-  earlier vertical cascade and box-spiral versions are gone.
+  cornered spiral that exercises all four v2.0 mechanics in one
+  program. The IP rides the perimeter at speed 2 with `↘ ↙ ↖`
+  corner glyphs, prints "code flows like wind" along the way,
+  then drops to speed 1 at the eye of the spiral, runs `t` to
+  spawn a counter-going child, and the parent + child arrive at
+  the same cell from opposite sides on the next tick. The
+  end-of-tick collision pass cancels them head-on, the live IP
+  list empties, and the program halts. There is no `@`
+  anywhere in the file. Earlier vertical-cascade and
+  hollow-spiral versions are gone.
 - **SPEC** bumped to v2.0. §9 drops the `--v0` row; §11
   Versioning rewrites the conformance promise to refer only to
   the current single-mode language.

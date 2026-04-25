@@ -248,8 +248,8 @@ const EXAMPLES = {
                       ≫
 
                       → , , , , , ↘
-
-                    @               ↓
+                    ↘
+                    ≪→→t←           ↓
 
                     ,               ,
 
@@ -269,54 +269,79 @@ const EXAMPLES = {
   ----------------------------------------------------------------------
   Output:  code flows like wind
 
-  How it spirals
-  --------------
-  The strmode segment at row 0 pushes the message in reverse, so 'c'
-  lands on top of the stack. Then \`v\` redirects the IP south, and
-  on the next tick \`≫\` raises its speed to 2. From there on, every
-  step is two cells in the current direction — the IP rides the
-  wind.
+  Notice there is no \`@\` anywhere in this program. It still
+  halts cleanly. Two winds meet head-on at the eye of the spiral
+  and the program ends.
 
-  The body is a clockwise rotation with diagonal corners. At each
-  corner the IP changes direction by 45° instead of a hard right
-  angle, so the path curves rather than turns. Twenty \`,\` print
-  cells line the perimeter at speed-2 intervals, one per character
-  of "code flows like wind", and the corner cells are tuned so the
-  IP arrives at each \`,\` exactly on the speed-2 stride:
+  How it flows
+  ------------
+  Row 0 builds the message in reverse so 'c' lands on top of the
+  stack, then \`v\` redirects the IP south. On the next tick \`≫\`
+  raises its speed to 2.
 
-    edge         glyph    cells              prints       chars
-    ----         -----    -----------------  -----------  -------------
-    top east     →        cols 24,26,28,30,32             "code "
-    top-right    ↘        ↘ → south at +2     —            —
-    right south  ↓        rows 7,9,11,13,15              "flows"
-    bottom-right ↙        ↙ → west at +2      —            —
-    bottom west  ←        cols 32,30,28,26,24            " like"
-    bottom-left  ↖        ↖ → north at +2     —            —
-    left north   ↑        rows 15,13,11,9,7              " wind"  (wraps)
-    halt         @        col 20, row 5                    —
+  From there the IP rides a clockwise rotation with diagonal
+  corners — \`↘ ↙ ↖\` — at speed 2. Each edge holds five \`,\`
+  print cells:
 
-  The 4 diagonal-corner glyphs (↘ ↙ ↖ — and one more inward turn at
-  the start) are exactly the cells that change direction. The IP's
-  speed is 2 throughout, so each leg of the rotation lands on every
-  other cell of that edge.
+    top edge        →  prints "code "
+    right edge      →  prints "flows"
+    bottom edge     →  prints " like"   (read west-to-east)
+    left edge       →  prints " wind"
+
+  After the final 'd' on the left edge at (20, 7), the IP advances
+  north to (20, 5) — the eye of the storm. Three things happen
+  there in quick succession:
+
+    (20, 5)  ≪   speed drops to 1
+    (20, 4)  ↘   redirect to south-east
+    (21, 5)  →   set east
+
+  Then at speed 1 the IP runs into:
+
+    (22, 5)  →
+    (23, 5)  t   SPLIT — child spawns at (22, 5) going west
+    (24, 5)  ←   parent reverses, now heading west
+
+  On the next tick parent and child both arrive at (23, 5) from
+  opposite sides:
+
+    parent: (24, 5) ←  →  advances west to (23, 5)
+    child:  (22, 5) →  →  advances east to (23, 5)
+
+  End-of-tick collision pass (SPEC §3.8): two IPs share (23, 5).
+  Direction sum is (-1, 0) + (+1, 0) = (0, 0) — head-on. The
+  merged IP dies. Live IP list is empty, so the runtime halts.
+  No \`@\` ever runs.
+
+  The drop to speed 1 is load-bearing
+  ----------------------------------
+  At speed 2 the parent only ever lands on even-x cells. The
+  child of \`t\` is born at (parent_x − 1) — odd-x — and
+  speed-2 movement preserves that parity, so parent and child
+  slide past each other forever. The \`≪\` puts both IPs back
+  on a common parity, so the merge can actually happen.
+
+  In other words: the wind has to slow down for the storm to
+  meet itself.
+
+  All four v2.0 mechanics in one program
+  --------------------------------------
+  - Eight winds (the corner glyphs ↘ ↙ ↖ + cardinal → ↓ ↑ ←).
+  - Wind speed (\`≫\` on the way in, \`≪\` at the eye).
+  - SPLIT (\`t\` creates the second IP).
+  - IP collision merge (head-on cancel halts the program).
 
   Things to notice
   ----------------
-  - The corners are visible 45° wedges in the source itself —
-    \`↘\` at top-right, \`↙\` at bottom-right, \`↖\` at bottom-left.
-    That's the IP's actual trajectory drawn into the file: the
-    program shows you its own path.
+  - Step under Debug. The state panel reads \`ips: 1\` for the
+    entire outer rotation, flips to \`ips: 2\` on the tick \`t\`
+    runs, and drops to \`ips: 0\` one tick later when the merge
+    fires. That \`2 → 0\` transition is the halt.
 
-  - The interior of the rotation is empty, exactly because the IP
-    never visits it. The whole program lives on the boundary; it's
-    a wind shell, not a labyrinth.
-
-  - Drop a \`,\` from any edge and the alignment shifts: the next
-    cell on the speed-2 stride no longer hits a \`,\`, the merged
-    print order garbles, and the @ moves out of position. The 20
-    characters of the message and the 20 perimeter print cells are
-    locked together by the geometry.
+  - Open the source in any text editor and the IP's actual
+    trajectory is visible as the spiral itself.
 \`,
+
 
   blank: '',
 };
