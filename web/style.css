@@ -92,6 +92,14 @@ header h1 {
 
 .toolbar input[type="number"] { width: 9em; }
 
+/* Force a wrap inside flex toolbars so anything after the
+   break starts on a new row. Used in #toolbar-idle to drop
+   Run/Debug onto their own row beneath the picker + inputs. */
+.toolbar-row-break {
+  flex-basis: 100%;
+  height: 0;
+}
+
 .toolbar button {
   padding: 0.3rem 0.85rem;
   background: var(--accent);
