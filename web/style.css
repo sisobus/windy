@@ -295,16 +295,16 @@ code {
 #stack-view {
   font-family: ui-monospace, Menlo, Consolas, monospace;
   font-size: 13px;
-  padding: 0;
   overflow: auto;
   max-height: 260px;
-  white-space: pre;
 }
 
 #stack-view .stack-body {
   margin: 0;
-  padding: 0.45rem 0.8rem;
+  padding: 0.5rem 0.8rem;
   white-space: pre;
+  font-family: inherit;
+  font-size: inherit;
 }
 
 #stack-view .stack-section + .stack-section {
@@ -319,11 +319,6 @@ code {
   color: var(--muted);
   background: var(--pre-bg);
   border-bottom: 1px solid var(--border);
-}
-
-#stack-view > .stack-body {
-  /* Single-IP case: padding matches the stack-section variant. */
-  padding: 0.5rem 0.8rem;
 }
 
 #stack-view .empty { color: var(--muted); font-style: italic; }
