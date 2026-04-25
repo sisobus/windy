@@ -177,6 +177,8 @@ windy version
 ## Examples
 
 - `examples/hello.wnd` — straight-line "Hello, World!".
+- `examples/add.wnd` — read two integers from stdin and print
+  their sum. The whole program is `&&+.@`.
 - `examples/hello_winds.wnd` — 2D loop routing.
 - `examples/fib.wnd` — first ten Fibonacci numbers, state stored
   via `g` / `p`.

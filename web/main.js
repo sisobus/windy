@@ -5,6 +5,37 @@ import init, { run, version, Session } from './pkg/windy.js?v=__VERSION__';
 const EXAMPLES = {
   hello: `"!dlroW ,olleH",,,,,,,,,,,,,@\n`,
 
+  add: `&&+.@
+
+  sisobus
+  ----------------------------------------------------------------------
+  Read two integers from stdin, print their sum.
+
+  Try it: put "3 4" in the stdin box below and hit Run.
+          Output: "7 ".
+
+  How: the source is one row, five cells.
+
+      &   GET_NUM   read one decimal integer from stdin, push to
+                    the stack. Whitespace between integers is
+                    consumed automatically; EOF or malformed
+                    input pushes -1.
+      &   GET_NUM   read the second integer.
+      +   ADD       pop b, pop a, push a + b.
+      .   PUT_NUM   pop the top, write its decimal repr followed
+                    by a single space.
+      @   HALT      end the program.
+
+  Notes
+  -----
+  - Stack values are arbitrary-precision (SPEC §2 #4). Try
+    "100000000000000000 1" — no overflow, the sum is exact.
+  - The two integers can be on the same line or separate lines;
+    \`&\` skips leading whitespace before each read.
+  - Five characters is also the entire program. This is what
+    Windy looks like once you stop bracing for ceremony.
+`,
+
   hello_winds: `"!dlroW ,olleH"↓
         ↓      ←
         →:#,_@
