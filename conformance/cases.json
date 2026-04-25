@@ -145,6 +145,11 @@
       "expected_stdout": "1 2 6 24 120 720 5040 40320 362880 3628800 "
     },
     {
+      "name": "split_file",
+      "source_file": "examples/split.wnd",
+      "expected_stdout": "\u0000A\u0000BA"
+    },
+    {
       "name": "split_in_strmode_pushes_116",
       "source": "\"t\".@",
       "expected_stdout": "116 "

@@ -166,6 +166,8 @@ windy version
 - `examples/fib.wnd` — first ten Fibonacci numbers, state stored via `g` / `p`.
 - `examples/stars.wnd` — 5-row star triangle via stack pre-load + counter loop.
 - `examples/factorial.wnd` — 1! through 10!, demonstrating BigInt growth past i64.
+- `examples/split.wnd` — concurrent IPs via `t` (SPLIT). Two IPs run side
+  by side, each with its own stack, both halting cleanly via their own `@`.
 
 ## Browser playground
 
