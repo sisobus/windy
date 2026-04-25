@@ -66,29 +66,25 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Sync site assets to S3 (excluding index.html and *.wasm)
+      - name: Sync site assets to S3 (except *.wasm)
         run: |
           if [ -z "$S3_BUCKET" ]; then
             echo "S3 bucket secret (AWS_S3_BUCKET) is missing."
             exit 1
           fi
-          # index.html is the only entry point with a stable URL, so we
-          # upload it separately with no-cache to guarantee browsers
-          # see the new ?v=<sha> references on every deploy. Other
-          # static assets are versioned by query string and can use
-          # default headers — different ?v= = different cache key.
+          # No special headers on index.html — the CloudFront /*
+          # invalidation step below covers the root URL, and the
+          # browser-heuristic cache window before the next visit is
+          # short enough that occasional staleness self-heals on the
+          # follow-up request. Versioned assets (everything else) carry
+          # a ?v=<sha> query that shifts on every deploy, so they
+          # bypass any stale browser entry without needing explicit
+          # cache headers either.
           aws s3 sync web/ "s3://${S3_BUCKET}/" \
             --delete \
             --exclude "README.md" \
             --exclude ".*" \
-            --exclude "*.wasm" \
-            --exclude "index.html"
-
-      - name: Upload index.html with no-cache header
-        run: |
-          aws s3 cp web/index.html "s3://${S3_BUCKET}/index.html" \
-            --content-type "text/html; charset=utf-8" \
-            --cache-control "no-cache, no-store, must-revalidate"
+            --exclude "*.wasm"
 
       - name: Upload .wasm files with application/wasm Content-Type
         run: |
