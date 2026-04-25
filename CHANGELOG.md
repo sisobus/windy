@@ -8,31 +8,48 @@ The crate on crates.io is `windy-lang`; the language and the installed
 binary are both `windy`. References to "the crate" below always mean
 `windy-lang` v$X.Y.Z`.
 
-## [Unreleased]
+## [2.0.0] — 2026-04-26
+
+Breaking-change cut. Removes the v0.4 legacy gate, tightens the
+language surface to a single set of semantics, and ships
+all-mechanic example programs.
 
 ### Added
 
-- **`examples/winds.wnd`** — a multi-IP exhibit that doesn't print
-  anything. Four `t` SPLITs in a row push the live IP list up to
-  five (1 parent + 4 children) at peak; each child immediately
-  redirects south via a `↓` cell on its spawn position, descends
-  ten rows of NOP space, and halts at its own `@` on row 10.
-  The parent uses `#` (TRAMPOLINE) before each `t` to skip the
-  `↓` redirects so they never apply to *itself*. Demonstrates
-  cascade avoidance with multiple SPLITs, alongside the existing
+- **`examples/winds.wnd`** — a multi-IP exhibit. Four `t` SPLITs
+  in a row push the live IP list up to five (1 parent + 4 children)
+  at peak; each child immediately redirects south via a `↓` cell on
+  its spawn position, descends ten rows of NOP space, and halts at
+  its own `@` on row 10. The parent uses `#` (TRAMPOLINE) before
+  each `t` to skip the `↓` redirects so they never apply to itself.
+  Demonstrates cascade avoidance with multiple SPLITs, alongside
   `examples/storm.wnd` (head-on collision merge).
 
-### Fixed
+### Changed
 
-- **Browser playground source loading**. The `anthem` entry in
-  `web/main.js`'s `EXAMPLES` map closed its template literal with
-  `\\\``, which JS treats as an escaped literal backtick — so the
-  template stayed open, swallowed the rest of the file, and the
-  module failed to load (no examples appeared in the editor when
-  picked). Replace with a real backtick. (Reported in-session.)
-
-Breaking-change cut. Removes the v0.4 legacy gate and tightens the
-language surface to a single set of semantics. No new features.
+- **`examples/anthem.wnd`** rewritten as a clockwise diagonal-
+  cornered spiral that exercises all four v2.0 mechanics in one
+  program. The IP rides the perimeter at speed 2 with `↘ ↙ ↖`
+  corner glyphs, prints "code flows like wind" along the way,
+  then drops to speed 1 at the eye of the spiral, runs `t` to
+  spawn a counter-going child, and parent + child arrive at the
+  same cell from opposite sides on the next tick. The end-of-tick
+  collision pass cancels them head-on, the live IP list empties,
+  and the program halts. There is no `@` anywhere in the file.
+  Earlier vertical-cascade and hollow-spiral versions are gone.
+- **SPEC** bumped to v2.0. §9 drops the `--v0` row; §11
+  Versioning rewrites the conformance promise to refer only to
+  the current single-mode language.
+- **Crate version 1.0.0 → 2.0.0** on crates.io as `windy-lang`.
+- **Playground UI** polish: Run / Debug now sit on their own row
+  beneath the picker + inputs (they used to be visually
+  clustered with the Max-steps input); Debug picks up the
+  outlined `secondary` style so it reads as the alternate path
+  instead of a duplicate primary; button padding tightened;
+  `touch-action: manipulation` added to toolbar buttons and the
+  grid view so iOS/Android no longer hijack rapid Step taps as a
+  pinch-zoom; "Copy link" button removed (the URL bar already
+  reflects the current source via the `#s=...` hash).
 
 ### Removed
 
@@ -49,26 +66,17 @@ language surface to a single set of semantics. No new features.
   (the additivity guard). Both were proving "v0 semantics still
   reachable when the gate is set"; with the gate gone, neither has
   anything to prove.
-- **Web playground v0 toggle** (was already gone in 1.0's late
-  cleanup; v2.0 removes the last code paths that referenced it).
+- **Web playground v0 toggle** and the in-browser framing that
+  required users to choose a mode before running anything.
 
-### Changed
+### Fixed
 
-- **`examples/anthem.wnd`** rewritten as a clockwise diagonal-
-  cornered spiral that exercises all four v2.0 mechanics in one
-  program. The IP rides the perimeter at speed 2 with `↘ ↙ ↖`
-  corner glyphs, prints "code flows like wind" along the way,
-  then drops to speed 1 at the eye of the spiral, runs `t` to
-  spawn a counter-going child, and the parent + child arrive at
-  the same cell from opposite sides on the next tick. The
-  end-of-tick collision pass cancels them head-on, the live IP
-  list empties, and the program halts. There is no `@`
-  anywhere in the file. Earlier vertical-cascade and
-  hollow-spiral versions are gone.
-- **SPEC** bumped to v2.0. §9 drops the `--v0` row; §11
-  Versioning rewrites the conformance promise to refer only to
-  the current single-mode language.
-- **Crate version 1.0.0 → 2.0.0** on crates.io as `windy-lang`.
+- **Browser playground source loading**. The `anthem` entry in
+  `web/main.js`'s `EXAMPLES` map closed its template literal with
+  an escaped backtick (`\\\``), which JS treats as a literal
+  character — so the template stayed open, swallowed the rest of
+  the file, and the module failed to load (no example source ever
+  appeared in the editor when picked). Replace with a real backtick.
 
 ### Migration
 
@@ -79,16 +87,6 @@ language surface to a single set of semantics. No new features.
   `Vm::with_v1(grid, seed, max, true)` with `Vm::new(grid, seed, max)`.
 - wasm: stop passing the trailing `v1` argument to `run()` /
   `new Session(...)`; the parameter is gone.
-
-## [1.0.0] — 2026-04-25
-
-### Changed
-
-- **Web playground** drops the "v0 legacy" toggle and the
-  associated `--v0` framing. v1.0 semantics are the language;
-  the legacy gate stays available in the CLI/SPEC for
-  migrations and remains documented in SPEC §9, but the
-  in-browser surface no longer asks new users to think about it.
 
 ## [1.0.0] — 2026-04-25
 
