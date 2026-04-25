@@ -92,7 +92,7 @@ header h1 {
 
 .toolbar input[type="number"] { width: 9em; }
 
-#run {
+.toolbar button {
   padding: 0.35rem 1.2rem;
   background: var(--accent);
   color: #fff;
@@ -100,9 +100,18 @@ header h1 {
   border-radius: 4px;
   font-weight: 600;
   cursor: pointer;
+  font: inherit;
+  line-height: 1.2;
 }
 
-#run:disabled {
+.toolbar button.secondary {
+  background: transparent;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  font-weight: 500;
+}
+
+.toolbar button:disabled {
   opacity: 0.5;
   cursor: wait;
 }
@@ -239,7 +248,23 @@ code {
   overflow: auto;
   padding: 0.6rem 0.8rem;
   max-height: 340px;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  /* Remove iOS tap highlight halo; we do our own feedback. */
+  -webkit-tap-highlight-color: transparent;
 }
+
+.grid-view:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.grid-view:active {
+  background: var(--pre-bg);
+}
+
+.tap-hint { display: none; }  /* shown only on touch pointers */
 
 .ip-cell {
   background: var(--accent);
@@ -286,3 +311,67 @@ code {
 
 .hint { color: var(--muted); font-weight: normal; font-size: 0.8em; margin-left: 0.5rem; }
 
+/* ---------- Mobile ---------- */
+/*
+ * On narrow screens the editor and the debug panels stack vertically.
+ * Without a sticky action bar the user has to scroll up to tap Step and
+ * back down to see the grid/state update — the specific pain point the
+ * user reported. We pin the debug toolbar to the bottom of the viewport
+ * while in debug mode, hide the editor so the debug panels own the
+ * full screen, and bump button touch targets to ≥44px.
+ */
+@media (max-width: 800px) {
+  body { padding: 0.75rem 1rem 1rem; }
+
+  .toolbar {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.5rem 0.6rem;
+  }
+
+  .toolbar button {
+    padding: 0.55rem 0.9rem;
+    flex: 1 1 auto;
+    min-height: 44px;
+  }
+
+  .tap-hint { display: inline; }
+
+  /* Sticky debug bar, only visible in debug mode. */
+  body.debug-mode .toolbar-debug {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    margin: 0;
+    border-radius: 0;
+    border: none;
+    border-top: 1px solid var(--border);
+    box-shadow: 0 -4px 14px rgba(0, 0, 0, 0.18);
+    padding: 0.6rem 0.8rem calc(0.6rem + env(safe-area-inset-bottom, 0px));
+    z-index: 100;
+    background: var(--panel-bg);
+  }
+
+  /* Reserve space at the page bottom so the last panel isn't clipped
+     by the fixed toolbar. */
+  body.debug-mode { padding-bottom: 5rem; }
+
+  /* Editor takes the whole screen otherwise; hide it once the user has
+     entered debug so the grid + state + stack + stdout are all visible
+     without scrolling past an irrelevant textarea. */
+  body.debug-mode .editor-section { display: none; }
+
+  /* Compact the debug panels a bit so more fits in the first screen. */
+  body.debug-mode .grid-view { max-height: 44vh; font-size: 12px; }
+  body.debug-mode #stack-view { max-height: 28vh; }
+  body.debug-mode #debug-stdout { max-height: 20vh; }
+
+  /* The "hint" tagline to the right of the toolbar wraps weirdly on
+     narrow screens; force a new line with reduced margin. */
+  .toolbar-debug .hint {
+    flex-basis: 100%;
+    margin-left: 0;
+    text-align: center;
+  }
+}

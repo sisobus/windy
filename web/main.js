@@ -23,8 +23,17 @@ const EXAMPLES = {
   blank: '',
 };
 
-const VIEWPORT_W = 60;
-const VIEWPORT_H = 13;
+const VIEWPORT_W_DESKTOP = 60;
+const VIEWPORT_W_MOBILE = 36;
+const VIEWPORT_H_DESKTOP = 13;
+const VIEWPORT_H_MOBILE = 15;
+
+function currentViewport() {
+  const mobile = matchMedia('(max-width: 800px)').matches;
+  return mobile
+    ? { w: VIEWPORT_W_MOBILE, h: VIEWPORT_H_MOBILE }
+    : { w: VIEWPORT_W_DESKTOP, h: VIEWPORT_H_DESKTOP };
+}
 
 const DIR_NAMES = {
   '1,0': '→ east',
@@ -60,6 +69,7 @@ const exitEl = $('exit-code');
 const toolbarDebug = $('toolbar-debug');
 const stepBtn = $('btn-step');
 const continueBtn = $('btn-continue');
+const restartBtn = $('btn-restart');
 const exitDebugBtn = $('btn-exit-debug');
 const outputDebug = $('output-debug');
 const gridView = $('grid-view');
@@ -68,6 +78,7 @@ const stateView = $('state-view');
 const stackView = $('stack-view');
 const stackLenEl = $('stack-len');
 const debugStdoutEl = $('debug-stdout');
+const shareBtn = $('btn-share');
 
 let wasmReady = false;
 let session = null;
@@ -122,12 +133,13 @@ const escHtml = (ch) =>
   ch === '<' ? '&lt;' : ch === '>' ? '&gt;' : ch === '&' ? '&amp;' : ch;
 
 function renderGridView() {
+  const { w: vw, h: vh } = currentViewport();
   const ipX = Number(session.ip_x);
   const ipY = Number(session.ip_y);
-  const x0 = ipX - Math.floor(VIEWPORT_W / 2);
-  const y0 = ipY - Math.floor(VIEWPORT_H / 2);
+  const x0 = ipX - Math.floor(vw / 2);
+  const y0 = ipY - Math.floor(vh / 2);
 
-  const cells = session.grid_slice(x0, y0, VIEWPORT_W, VIEWPORT_H);
+  const cells = session.grid_slice(x0, y0, vw, vh);
 
   // Collect every live IP's (x, y) so we can highlight multi-IP programs.
   const positions = session.ip_positions();
@@ -139,10 +151,10 @@ function renderGridView() {
   }
 
   const lines = [];
-  for (let dy = 0; dy < VIEWPORT_H; dy++) {
+  for (let dy = 0; dy < vh; dy++) {
     const row = [];
-    for (let dx = 0; dx < VIEWPORT_W; dx++) {
-      const cp = cells[dy * VIEWPORT_W + dx];
+    for (let dx = 0; dx < vw; dx++) {
+      const cp = cells[dy * vw + dx];
       let ch = String.fromCodePoint(cp);
       if (cp < 0x20 || cp === 0x7f) ch = ' ';
       const safe = escHtml(ch);
@@ -213,40 +225,60 @@ function freeSession() {
   session = null;
 }
 
+function buildSession() {
+  return new Session(
+    sourceEl.value,
+    stdinEl.value,
+    parseOptionalBigInt(seedEl.value),
+    parseOptionalBigInt(maxStepsEl.value),
+  );
+}
+
 function enterDebug() {
   if (!wasmReady) return;
-  // Tear down any lingering session so "Debug" always restarts cleanly,
-  // including the legitimate-but-easy-to-miss case where mode was left as
-  // 'debug' by a previous render error.
   freeSession();
   try {
-    session = new Session(
-      sourceEl.value,
-      stdinEl.value,
-      parseOptionalBigInt(seedEl.value),
-      parseOptionalBigInt(maxStepsEl.value),
-    );
+    session = buildSession();
   } catch (err) {
     stderrEl.textContent = String(err);
     exitEl.textContent = 'error';
     return;
   }
   mode = 'debug';
+  document.body.classList.add('debug-mode');
   toolbarIdle.hidden = true;
   toolbarDebug.hidden = false;
   outputRun.hidden = true;
   outputDebug.hidden = false;
   renderDebug();
-  stepBtn.focus();
+  // Don't auto-focus stepBtn on touch devices — it scrolls the page and
+  // summons the virtual keyboard on some platforms. Only grab focus when
+  // there's a physical keyboard in play.
+  if (!matchMedia('(pointer: coarse)').matches) {
+    stepBtn.focus();
+  }
 }
 
 function exitDebug() {
   freeSession();
   mode = 'idle';
+  document.body.classList.remove('debug-mode');
   toolbarIdle.hidden = false;
   toolbarDebug.hidden = true;
   outputRun.hidden = false;
   outputDebug.hidden = true;
+}
+
+function restartDebug() {
+  if (mode !== 'debug') return;
+  freeSession();
+  try {
+    session = buildSession();
+  } catch (err) {
+    stderrEl.textContent = String(err);
+    return;
+  }
+  renderDebug();
 }
 
 function doStep() {
@@ -265,14 +297,81 @@ function doContinue() {
   }
 }
 
+// ---------- URL hash permalink ----------
+
+const PERMALINK_PREFIX = '#s=';
+
+function encodeSourceForHash(src) {
+  const bytes = new TextEncoder().encode(src);
+  let binary = '';
+  for (const b of bytes) binary += String.fromCharCode(b);
+  // Base64 → base64url for slightly friendlier hashes.
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function decodeSourceFromHash(hash) {
+  // Accept `#s=…` (current) or a bare `#…` blob (looser; matches older
+  // shared links if we ever widen the format).
+  let payload = null;
+  if (hash.startsWith(PERMALINK_PREFIX)) payload = hash.slice(PERMALINK_PREFIX.length);
+  if (payload == null) return null;
+  try {
+    let b64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+    while (b64.length % 4) b64 += '=';
+    const binary = atob(b64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return new TextDecoder().decode(bytes);
+  } catch (_) {
+    return null;
+  }
+}
+
+let hashWriteTimer = null;
+function scheduleHashWrite() {
+  clearTimeout(hashWriteTimer);
+  hashWriteTimer = setTimeout(() => {
+    const src = sourceEl.value;
+    if (!src) {
+      // Drop the hash when the editor is empty.
+      history.replaceState(null, '', location.pathname + location.search);
+    } else {
+      history.replaceState(null, '', PERMALINK_PREFIX + encodeSourceForHash(src));
+    }
+  }, 250);
+}
+
+async function copyPermalink() {
+  const src = sourceEl.value;
+  const url = src
+    ? `${location.origin}${location.pathname}${PERMALINK_PREFIX}${encodeSourceForHash(src)}`
+    : `${location.origin}${location.pathname}`;
+  try {
+    await navigator.clipboard.writeText(url);
+    const old = shareBtn.textContent;
+    shareBtn.textContent = 'Copied';
+    setTimeout(() => { shareBtn.textContent = old; }, 1200);
+  } catch (_) {
+    // Older browsers / insecure contexts: prompt with the URL.
+    prompt('Permalink', url);
+  }
+}
+
 // ---------- Wire up ----------
 
-pickerEl.addEventListener('change', (e) => loadExample(e.target.value));
+pickerEl.addEventListener('change', (e) => {
+  loadExample(e.target.value);
+  scheduleHashWrite();
+});
 runBtn.addEventListener('click', handleRun);
 debugBtn.addEventListener('click', enterDebug);
 stepBtn.addEventListener('click', doStep);
 continueBtn.addEventListener('click', doContinue);
+restartBtn.addEventListener('click', restartDebug);
 exitDebugBtn.addEventListener('click', exitDebug);
+shareBtn.addEventListener('click', copyPermalink);
+
+sourceEl.addEventListener('input', scheduleHashWrite);
 
 sourceEl.addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
@@ -281,23 +380,62 @@ sourceEl.addEventListener('keydown', (e) => {
   }
 });
 
+// Tap / click / Enter on the grid viewport steps the VM. Mobile users
+// get a full-screen touch target; desktop users get a second chance at
+// stepping without moving the mouse to the toolbar.
+gridView.addEventListener('click', () => {
+  if (mode === 'debug') doStep();
+});
+gridView.addEventListener('keydown', (e) => {
+  if (mode !== 'debug') return;
+  if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault();
+    doStep();
+  }
+});
+
 document.addEventListener('keydown', (e) => {
   if (mode !== 'debug') return;
   const target = e.target;
   if (target && (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT')) return;
+  // gridView handles its own Enter/Space so focus-on-grid doesn't double-step.
+  if (target === gridView) return;
   if (e.key === 'Enter' || e.key === 's') {
     e.preventDefault();
     doStep();
   } else if (e.key === 'c') {
     e.preventDefault();
     doContinue();
+  } else if (e.key === 'r') {
+    e.preventDefault();
+    restartDebug();
   } else if (e.key === 'q' || e.key === 'Escape') {
     e.preventDefault();
     exitDebug();
   }
 });
 
-loadExample('hello');
+// Pull an initial program out of the URL hash if present; otherwise
+// default to the hello.wnd example.
+const hashSrc = decodeSourceFromHash(location.hash);
+if (hashSrc != null) {
+  sourceEl.value = hashSrc;
+} else {
+  loadExample('hello');
+}
+
+// Re-render the grid when the viewport classification changes (desktop
+// ↔ mobile, e.g. after an orientation flip) so the number of columns
+// stays readable without requiring a manual step.
+matchMedia('(max-width: 800px)').addEventListener('change', () => {
+  if (mode === 'debug' && session) renderDebug();
+});
+window.addEventListener('hashchange', () => {
+  const src = decodeSourceFromHash(location.hash);
+  if (src != null && src !== sourceEl.value && mode !== 'debug') {
+    sourceEl.value = src;
+  }
+});
 
 runBtn.disabled = true;
 debugBtn.disabled = true;

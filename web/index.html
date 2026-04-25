@@ -28,23 +28,25 @@
     <label>Max steps: <input id="max-steps" type="number" placeholder="(unbounded)" min="1"></label>
     <button id="btn-run">Run</button>
     <button id="btn-debug">Debug</button>
+    <button id="btn-share" class="secondary" title="Copy a permalink to this program">Copy link</button>
     <span id="version-badge"></span>
   </div>
 
-  <div class="toolbar" id="toolbar-debug" hidden>
-    <button id="btn-step">Step (Enter)</button>
+  <div class="toolbar toolbar-debug" id="toolbar-debug" hidden>
+    <button id="btn-step">Step</button>
     <button id="btn-continue">Continue</button>
-    <button id="btn-exit-debug">Exit debug</button>
-    <span class="hint">source edits ignored until you exit debug mode</span>
+    <button id="btn-restart" class="secondary">Restart</button>
+    <button id="btn-exit-debug" class="secondary">Exit</button>
+    <span class="hint">tap the grid to step · Enter / s / c / q on desktop</span>
   </div>
 
   <main>
     <section class="editor-section">
       <label for="source">Source</label>
-      <textarea id="source" spellcheck="false"></textarea>
+      <textarea id="source" spellcheck="false" autocapitalize="off" autocorrect="off"></textarea>
 
-      <label for="stdin">stdin <span class="hint">(consumed by <code>?</code> / <code>&amp;</code>)</span></label>
-      <textarea id="stdin" rows="2" spellcheck="false"></textarea>
+      <label for="stdin">stdin <span class="hint">(consumed by <code>?</code> / <code>&amp;</code>; snapshotted when Debug starts)</span></label>
+      <textarea id="stdin" rows="2" spellcheck="false" autocapitalize="off" autocorrect="off"></textarea>
     </section>
 
     <section class="output-section" id="output-run">
@@ -60,8 +62,8 @@
 
     <section class="output-section debug-grid" id="output-debug" hidden>
       <div class="panel panel-wide">
-        <div class="panel-head">grid <span id="grid-viewport-label"></span></div>
-        <pre id="grid-view" class="grid-view"></pre>
+        <div class="panel-head">grid <span id="grid-viewport-label"></span> <span class="hint tap-hint">tap to step</span></div>
+        <pre id="grid-view" class="grid-view" role="button" tabindex="0" aria-label="Grid viewport; tap or press Enter to step the VM"></pre>
       </div>
       <div class="panel">
         <div class="panel-head">state</div>
