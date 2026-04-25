@@ -24,7 +24,9 @@ include = [
     "/src/**/*.rs",
     "/examples/*.wnd",
     "/conformance/cases.json",
+    "/conformance/v1.json",
     "/tests/conformance.rs",
+    "/tests/conformance_v1.rs",
 ]
 
 [lib]
