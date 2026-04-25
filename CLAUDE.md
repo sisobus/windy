@@ -11,28 +11,42 @@
 - **배포 중**: 브라우저 플레이그라운드 [windy.sisobus.com](https://windy.sisobus.com),
   WASI 바이너리 [windy.sisobus.com/windy.wasm](https://windy.sisobus.com/windy.wasm).
   CI는 `main` push 시 자동 build → S3 sync → CloudFront `/*` invalidate.
-- **다음 마일스톤**: v0.5 publish prep 마무리(crates.io 1차 publish + repo public),
-  그 후 v1.0 의미론 cut (현재 후보: **F 풍속 + D IP 충돌**).
-- **결정 미완**: v1.0의 정확한 의미론 feature 선택. `docs/v1.0-design.md` §
-  "Recommendation"이 F+D를 제안 중이지만 사용자 최종 사인 필요.
+- **다음 마일스톤**: **v1.0 cut**. 의미론은 **F 풍속 + D IP 충돌(merge)**
+  으로 결정 완료, SPEC에 `## Pre-release: v1.0 (proposal)` 초안 머지됨.
+  이제 구현 단계.
+- **v0.5 publish는 v1.0 이후로 defer**. crates.io 첫 publish + repo public을
+  v0.5 시점에 끊으면 곧바로 v1.0으로 major bump해야 해서 churn이 큼.
+  v1.0이 준비되면 그 시점에 publish + public 한 번에 처리.
 
 ## 즉시 작업 가능한 항목
 
 다음 세션이 어디서 시작하면 되는지 우선순위 순:
 
-1. **v1.0 의미론 결정 마무리.** `docs/v1.0-design.md` 읽고 사용자에게 F+D 안
-   확정/대안 의견 받기. 결정되면 SPEC `## Pre-release: v1.0 (proposal)`
-   섹션 초안 작성.
-2. **`crates.io` 첫 publish.** 사용자가 `cargo login` 한 번 한 뒤 `cargo
-   publish --dry-run` → 실제 publish. Cargo.toml 메타데이터, `cargo package
-   --list`(23 files, 33KiB compressed), LICENSE는 모두 준비 완료.
-3. **repo public 전환** + README의 `crates.io` 뱃지가 실제 데이터 보이는지
-   확인 (publish 후 자동).
-4. **빌드 산출물에 진짜 파일명 hash 도입** (지금은 `?v=<sha>` 쿼리스트링).
-   진짜 파일명 hash가 immutable cache 헤더 + 영구 캐싱 가능하게 함. v0.6
-   이후 미세 최적화.
-5. **언어 자체 작업**으로 들어가면 v1.0 design memo의 후보 구현. F (속도)
-   + D (충돌)이 가장 가성비 좋은 조합.
+1. **v1.0 구현 — F (풍속) + D (충돌 merge).** SPEC § *Pre-release: v1.0
+   (proposal)*가 정답. 단계:
+   - `IpContext`에 `speed: BigInt` (기본 1) 필드 추가.
+   - `src/opcodes.rs`에 `Op::Gust` (`≫`, U+226B), `Op::Calm` (`≪`, U+226A)
+     decode + dispatch.
+   - `src/vm.rs` 이동 단계: `pos += dir * speed`. 중간 셀 스킵, 도착 셀만
+     실행.
+   - 충돌 pass: tick 끝마다 같은 좌표 IP 그룹화 → birth-order merge
+     (스택 concat / 방향 vec sum clip / speed max / strmode reset /
+     `(0,0)` ⇒ die).
+   - CLI에 `--v1` 플래그 (브라우저 wasm은 동등한 스위치).
+   - `conformance/v1.json` 신규 (gust 단일 IP, calm@1 트랩, 충돌 head-on
+     death, 3-IP merge 등 시드 케이스).
+   - `examples/gust.wnd`, `examples/storm.wnd`.
+   - 디버거 UI: per-IP speed 배지, merge 이벤트 표시.
+2. **빌드 산출물에 진짜 파일명 hash 도입** (지금은 `?v=<sha>` 쿼리스트링).
+   v1.0 후 미세 최적화.
+
+### v1.0 이후로 defer
+
+- **`crates.io` 첫 publish** — Cargo.toml 메타데이터·LICENSE·package list
+  준비는 끝났지만 v0.5에서 publish하면 곧 v1.0 major bump가 따라와서
+  사용자 혼란만 큼. v1.0이 stable해진 시점에 한 번에.
+- **repo public 전환** + README 뱃지 데이터 노출 — 위와 동일 사유.
+  v1.0과 같이 공개하는 게 임팩트도 큼.
 
 작업하기 전에 사용자에게 어느 항목부터 갈지 확인할 것.
 
@@ -206,7 +220,7 @@ Python 인터프리터 + rich 디버거 + WASI output-baking stopgap. v0.2에서
 - [x] Conformance 케이스 + Rust 유닛 테스트 다수
 - [x] `examples/split.wnd` 추가 — 두 IP 모두 깨끗하게 halt
 
-### v0.5 (배포 채널 확장) — 진행 중
+### v0.5 (배포 채널 확장) — 부분 완료, publish는 v1.0과 합본
 
 - [x] `wasm32-wasip1` 타겟. CI가 빌드해서 `web/windy.wasm`로 S3 sync.
       `wasmtime --dir=. windy.wasm run hello.wnd` 식으로 실행.
@@ -216,37 +230,39 @@ Python 인터프리터 + rich 디버거 + WASI output-baking stopgap. v0.2에서
       깨끗한 23 files / 33KiB 압축 확인.
 - [x] README "Why Windy" 섹션 — 풍 메타포 + sisobus + 정직한 dialect
       라벨링 + windy.sisobus.com 링크 + 뱃지.
-- [x] `docs/v1.0-design.md` — v1.0 후보 5개 분석 + F+D 추천.
+- [x] `docs/v1.0-design.md` — v1.0 후보 5개 분석 + F+D 결정 (post-review).
 - [x] 캐시버스팅 (`?v=<sha>` + CDN invalidation).
-- [ ] **`crates.io` 첫 publish**. 사용자 직접 작업 (cargo login 필요).
-- [ ] **repo public 전환** + 뱃지 데이터 노출.
+- [→ v1.0] **`crates.io` 첫 publish**. v0.5 publish 후 곧장 v1.0 major
+      bump 따라오면 churn 큼 → v1.0과 같이 publish. 준비 완료 상태로
+      대기 (cargo login만 사용자 1회).
+- [→ v1.0] **repo public 전환** + 뱃지 데이터 노출. 위와 동일 사유로
+      v1.0과 같이 공개.
 
-### v1.0 (Befunge dialect 벗어나기) — 미정
+### v1.0 (Befunge dialect 벗어나기) — 결정 완료, 구현 시작
 
-후보 분석은 `docs/v1.0-design.md`에. 핵심:
+**의미론 결정 (post v0.5 review):** **F (풍속) + D (IP 충돌 merge)** 둘 다
+채택. 둘 다 additive·직교, 풍속이 만든 race 패턴이 충돌 의미론과 맞물림.
+정식 명세는 SPEC § *Pre-release: v1.0 (proposal)*, 결정 사유와 reject된
+후보(A 관성 / B 시간축 / C 2D 스택 / E 다중토큰)는 `docs/v1.0-design.md`.
 
-- **A 풍향 관성**: 정체성 정합 최고지만 기존 프로그램이 거의 다 깨짐.
-  사실상 reject.
-- **B 시간축 grid**: 새 패러다임이지만 grid가 **3D**가 되어 가시성이
-  사라짐. 사용자가 "안 보인다"고 거부 의견.
-- **C 2D 스택**: 모델 자체 갈아엎음. 너무 큼.
-- **D IP 충돌 의미론**: 단독으론 너무 작음.
-- **E 다중 토큰 셀**: 1-셀-1-codepoint 약속 깸. reject.
+**합의된 디테일** (사용자 사인 받음):
 
-→ 추가 후보 **F 풍속**: 각 IP에 `speed: u32` (기본 1). 새 글리프
-`≫` (GUST, `speed += 1`), `≪` (CALM, `speed -= 1`). 풍 메타포 정합 +
-2D 가시성 + additive (기본 speed=1이라 v0.x 프로그램 그대로 동작) +
-Befunge에 없는 의미론. **Spec cost는 최소** (`IpContext`에 필드 하나
-+ opcode 2개).
+- 풍속은 `BigInt` (upper bound 없음). CALM이 GUST 대칭이라 deceleration
+  항상 가능.
+- `≪` at speed=1 ⇒ 0 되니 **런타임 트랩** (CALM에 sharp edge 필요).
+- speed=N 의미: 한 tick에 N칸 점프, **도착 셀만 실행**, 중간 셀 스킵
+  (string-mode 토글 / unknown-glyph 경고 다 안 일어남).
+- `t` SPLIT: 자식이 부모 speed 그대로 상속.
+- 충돌 merge: 스택 birth-order concat / 방향 vec sum (axis별 clip,
+  `(0,0)` ⇒ die) / speed = max / strmode = false.
+- mid-segment 교차(스왑) 검출 안 함. v1.x로 미룸.
 
-**현재 추천**: **F + D 같이 v1.0**. 둘 다 additive, 직교, 풍속이
-도입한 race 패턴이 충돌 의미론과 자연스럽게 맞물림. 사용자 사인 받고
-SPEC에 `## Pre-release: v1.0 (proposal)` 섹션 작성하면 시작.
+**구현 작업**: § "즉시 작업 가능한 항목" 1번 항목 단계 참고.
 
 ### v1.x+
 
 SPEC §10 참고. 핑거프린트/opcode 확장 메커니즘, hot-loop tracing JIT,
-standard-library overlays.
+standard-library overlays. 충돌 mid-segment 검출도 여기.
 
 ## 권한 / 작업 환경 메모
 

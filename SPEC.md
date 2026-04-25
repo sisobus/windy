@@ -344,6 +344,10 @@ programs remain forward-compatible when they ship:
     - **Cells as multi-token regions** — a cell may hold a finite
       ordered tuple of codepoints; string mode operates inside the
       tuple, decoupling source layout from token granularity.
+    - **Wind speed** — each IP carries a strictly positive
+      `speed` (default `1`) and advances `speed` cells per tick.
+      Two new opcodes — `≫` (GUST) and `≪` (CALM) — bump or trim
+      it. Added as a sixth candidate during the v0.5 design review.
 
   Selecting one (or composing several) is the v1.0 design exercise.
   Until then, README and the public site describe Windy as "a
@@ -351,8 +355,142 @@ programs remain forward-compatible when they ship:
   author-signature watermark" — which is honest and does the
   language no harm.
 
+  **Decision (post v0.5 review).** The v1.0 cut composes
+  **wind speed** and **IP collision (merge)** semantics. Both are
+  additive and orthogonal; programs that don't use the new opcodes
+  and never produce a collision execute identically under v0.4 and
+  v1.0. Normative semantics live in the *Pre-release: v1.0
+  (proposal)* section below. See also `docs/v1.0-design.md` for the
+  rationale and the candidates that were rejected.
+
 Implementations MAY define experimental opcodes outside the 33 listed here,
 but MUST gate them behind an explicit opt-in flag to preserve portability.
+
+---
+
+## Pre-release: v1.0 (proposal)
+
+> Status: **proposal**, not part of v0.4 conformance. Implementations
+> MAY support the semantics in this section behind an explicit opt-in
+> flag (recommended: `--v1`). When the flag is off, behavior is
+> exactly as specified in §1–§9. v1.0 goldens live in a parallel
+> `conformance/v1.json` and load only when the flag is set.
+
+The v0.x line is, in execution-model terms, Befunge-98 with stricter
+promises and a Unicode-first surface (§10). v1.0 introduces **two
+additive semantic features** so that "Windy is just Befunge with a
+haircut" stops being a fair sentence:
+
+1. **Wind Speed** — IPs may move multiple cells per tick.
+2. **IP Collision (Merge)** — IPs that meet on the same cell
+   coalesce into one.
+
+Both are additive: programs that never execute the new opcodes and
+never produce a collision behave identically under v0.4 and v1.0.
+
+### Wind Speed
+
+Each IP gains a new field, **speed**: a strictly positive arbitrary-
+precision integer, initially `1`. The §3.6 main-loop movement step
+
+> `ip.position ← ip.position + ip.dir`
+
+becomes
+
+> `ip.position ← ip.position + ip.dir × ip.speed`
+
+That is: an IP at speed `N` advances `N` cells in its current
+direction per tick, and **only the destination cell executes** —
+intermediate cells are not decoded, do not toggle string mode, and
+do not produce unknown-glyph warnings. High wind blows past
+obstacles.
+
+Two new opcodes adjust speed:
+
+| Glyph | Codepoint | Name | Semantics |
+|-------|-----------|------|-----------|
+| `≫`   | U+226B    | GUST | `ip.speed ← ip.speed + 1`. |
+| `≪`   | U+226A    | CALM | `ip.speed ← ip.speed − 1`. If the result would be `0`, the executing IP **traps** with a runtime error ("calm in still air") that aborts the program with a non-zero exit code. |
+
+Both opcodes also advance the IP per the standard movement rule
+above. Executing `≫` at speed 3 advances the IP 3 cells *and* leaves
+it at speed 4 for the next tick.
+
+Speed has **no upper bound**: it is BigInt, consistent with the
+language's promise of unbounded arithmetic (§2 #4). At speed `N`
+larger than the populated grid extent, the IP simply lands on a cell
+that defaults to space (NOP).
+
+`t` (SPLIT, §4) is extended: the new IP **inherits the parent's
+speed at split time**. The parent's speed is unchanged. The empty-
+stack and string-mode-off rules from §3.5 are unchanged.
+
+`~` (TURBULENCE, §4) is unchanged — it picks one of the eight wind
+directions uniformly at random; speed is preserved.
+
+### IP Collision (Merge)
+
+After every tick's movement step (§3.6), the runtime performs a
+**collision pass**:
+
+1. Group all live IPs by `(x, y)` position.
+2. For each group containing two or more IPs:
+   1. Sort the group by **birth order** (oldest first; identical to
+      the IP list ordering of §3.5).
+   2. **Merge** the group into a single IP at the same position
+      with:
+      - **stack**: concatenation of the constituent stacks in
+        birth order, with the oldest IP's stack at the bottom.
+      - **direction**: the per-axis sum of constituent directions,
+        clipped to `{-1, 0, +1}`. If the result is `(0, 0)` —
+        a head-on storm cancelling itself — the merged IP **dies**
+        and is removed from the live list.
+      - **speed**: maximum over the constituents (strong wind
+        absorbs weak).
+      - **strmode**: forced to `false`. Merging is a fresh start.
+   3. Replace the group with the single merged IP, retaining the
+      oldest IP's slot in the live list.
+
+The collision pass runs **once per tick**, after movement and before
+the next tick begins. A merged IP that lands on a third IP on a
+following tick merges again per the same rule.
+
+**Detection scope.** Only end-of-tick coincidence is a collision.
+Two IPs that swap positions in a single tick (e.g., two speed-1 IPs
+moving toward each other from adjacent cells) pass through each
+other in v1.0; mid-segment crossing detection is reserved for a
+future version.
+
+**Determinism.** Merge order is fully determined by the §3.5 birth-
+order rule, so collision outcomes are reproducible across conforming
+implementations.
+
+### Edge Cases (additive to §7)
+
+| Condition | Behavior |
+|-----------|----------|
+| `≪` at `speed == 1` (would yield 0) | Runtime error; program aborts with a non-zero exit code. |
+| `≫` repeatedly without bound | Legal; speed is BigInt. |
+| Speed exceeds populated grid extent | Legal; the destination cell defaults to space (NOP). |
+| `t` SPLIT at speed `N` | Parent advances `N` cells per the §3.6 rule; the child is born at the parent's *original* `(x − dx, y − dy)`, going `(−dx, −dy)`, with **speed `N`** (parent's speed at split time). |
+| Three or more IPs collide on the same cell in the same tick | Single merge per the rule above; equivalent to a left-fold of pairwise merges in birth order. |
+| String-mode toggle on a high-speed IP | Only the **destination** cell is read. If the destination is `"`, strmode toggles as normal; intermediate `"` cells are not seen. |
+| `~` (TURBULENCE) on a high-speed IP | Speed is preserved; only direction changes. |
+| Merge produces `(0, 0)` direction | The merged IP dies. The constituents' stacks are discarded with it. |
+
+### Conformance
+
+A v1.0 implementation MUST expose an opt-in flag (recommended:
+`--v1`). With the flag **off**, the implementation MUST be
+bit-identical to v0.4 — including a NOP-with-warning decode for `≫`
+and `≪`, since they are not v0.4 opcodes. With the flag **on**, the
+implementation MUST pass `conformance/v1.json` byte-for-byte on
+stdout + exit code, in addition to the existing
+`conformance/cases.json`.
+
+The `--v1` flag and the corresponding browser-runtime toggle MAY be
+renamed in the v1.0 final cut, but the semantics defined in this
+section are stable proposals subject only to bug-fix changes.
 
 ---
 
