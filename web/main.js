@@ -245,86 +245,67 @@ const EXAMPLES = {
 `,
 
   anthem: `"dniw ekil swolf edoc"v
-                      ≫
-↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘
-                      ,
-↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗
-                      ,
-↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘
-                      ,
-↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗
-                      ,
-↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘
-                      ,
-↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗
-                      ,
-↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘
-                      ,
-↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗
-                      ,
-↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘
-                      ,
-↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗
-                      ,
-↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘
-                      ,
-↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗
-                      ,
-↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘
-                      ,
-↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗
-                      ,
-↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘
-                      ,
-↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗
-                      ,
-↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘
-                      ,
-↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗
-                      ,
-↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘
-                      ,
-↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗↗
-                      ,
-↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘↘
-                      @
+                      →,,,,,↓
+                      →,@↘↘↘,
+                      ,↗↘↗↘↗,
+                      ,↘↗↘↗↘,
+                      ,↗↘↗↘↗,
+                      ,↘↗↘↗↘,
+                      ↑,,,,,←
 
   sisobus
   ----------------------------------------------------------------------
   Output:  code flows like wind
 
-  How it works
-  ------------
-  The strmode segment "dniw ekil swolf edoc" pushes the message
-  reverse-bytewise onto the stack so that 'c' (the first character of
-  the forward output) lands on top. Then \`v\` redirects the IP south
-  and \`≫\` raises its speed to 2.
+  How it spirals
+  --------------
+  The strmode segment "dniw ekil swolf edoc" pushes the message in
+  reverse, so 'c' lands on top of the stack. Then \`v\` redirects
+  the IP south into the spiral entry at column 22.
 
-  From there on, the IP descends column 22 at speed 2, advancing two
-  rows per tick. Only the destination cell decodes — intermediate
-  rows are skipped entirely (SPEC §3.7). The layout exploits this:
+  The spiral itself is a 7×7 box laid out clockwise inward.
+  Corners are turn redirects (→, ↓, ←, ↑); the cells in between
+  are the twenty \`,\` print operations that drain the stack one
+  character per cell as the IP walks the perimeter:
 
-    - Action rows hold a single \`,\` at column 22. Each one pops
-      the top of the stack and writes its codepoint as a Unicode
-      character.
-    - Decoration rows are walls of ↘ or ↗. The IP never decodes
-      them — they are intermediate cells the wind blows past — but
-      they are visible to the human reader, so the file looks like
-      the gusts and crosswinds that the program actually models.
+    top edge    →  prints "code "      (5 chars)
+    right edge  →  prints "flows"      (5 chars)
+    bottom edge →  prints " like"      (5 chars, west-to-east traversal)
+    left edge   →  prints " win"       (4 chars, south-to-north)
+    inner step  →  prints "d"          (last char, then halts at @)
 
-  Twenty \`,\` cells drain the stack; the final cell at column 22 of
-  the last row is \`@\`, lined up exactly with the speed-2 stride.
+  The IP visits every perimeter cell exactly once, so the twenty
+  \`,\` cells along the perimeter exactly match the twenty
+  characters of the message. After the last left-edge print at
+  (22,3), the IP arrives at (22,2) — a \`→\` that turns it inward.
+  It steps into the inner ring start at (23,2), prints the final
+  'd', and the next cell (24,2) is \`@\` — clean halt.
+
+  The interior of the spiral (rows 3–6, columns 23–27) is filled
+  with alternating ↗ ↘ wind arrows. The IP never decodes them: at
+  no point along its perimeter walk does the path step into the
+  interior except at (23,2) and (24,2), which are the explicit
+  print + halt cells. Everything else is purely visual texture —
+  the decorative crosswind inside the eye of the storm.
 
   Things to notice
   ----------------
-  - The decoration walls aren't decoration only because they're
-    pretty — they also serve as a hard stop for any speed-1
-    traversal. If the IP ever drops back to speed 1 (say, you put
-    a ≪ inline) the next cell it lands on is a wall arrow that
-    flings it off the print column entirely. In other words: at
-    the wrong speed, you don't print a corrupted message — you
-    don't print at all. Wind speed isn't decorative in this
-    program; it's the sole reason the message reaches stdout.
+  - The strmode-reversed-message technique is general: write your
+    forward-readable text in reverse between quotes, drain top-down
+    with \`,\`, and the stack does the un-reversal for you.
+
+  - Corner cells double as direction-set ops; non-corner perimeter
+    cells double as print ops. The IP's direction is unchanged by
+    \`,\`, so once the spiral sets you going east at the top, you
+    keep going east through five \`,\`s, then the corner \`↓\`
+    flips you south, and so on. The geometry of the spiral and
+    the arithmetic of the message length are tuned to each other:
+    drop a character and the spiral stops landing on its \`@\`.
+
+  - The whole thing reads as a flow chart. Step through it under
+    Debug mode and trace the IP with your eye — one character peels
+    off the stack per perimeter cell, and the message assembles in
+    stdout as the IP completes its rotation.
 `,
 
   blank: '',
@@ -600,7 +581,7 @@ function buildSession() {
     stdinEl.value,
     parseOptionalBigInt(seedEl.value),
     parseOptionalBigInt(maxStepsEl.value),
-    !legacyModeEl.checked,
+    true,
   );
 }
 
