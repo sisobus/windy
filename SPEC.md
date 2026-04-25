@@ -1,4 +1,4 @@
-# Windy Language Specification — v1.0
+# Windy Language Specification — v2.0
 
 This document is the single source of truth for the Windy programming language.
 Implementations (the reference Rust interpreter, the WASM backend, any future
@@ -361,7 +361,7 @@ execution:
 
 ```
 ╔═══════════════════════════════════════╗
-║  Windy v1.0                           ║
+║  Windy v2.0                           ║
 ║  Crafted by Kim Sangkeun (@sisobus)   ║
 ╚═══════════════════════════════════════╝
 ```
@@ -389,7 +389,6 @@ Rust implementation uses the names below):
 |-----------------|--------------------------------------------------------------------|
 | `--seed N`      | Seed the TURBULENCE RNG for reproducible runs. Default: OS entropy. |
 | `--max-steps N` | Abort after N IP steps with exit code 124. Default: unbounded.      |
-| `--v0`          | Run in v0.4 legacy mode: disable §3.7 wind speed and §3.8 collision merge; `≫` and `≪` decode as Unknown (NOP + warning). Default: off (full v1.0 semantics). |
 
 ### 9.1 Exit codes
 
@@ -403,19 +402,17 @@ Rust implementation uses the names below):
 
 ## 10. Reserved for Future Versions
 
-The following features are *not* part of v1.0. They are listed so that v1.0
-programs remain forward-compatible when they ship:
+The following features are *not* part of v2.0. They are listed so that
+v2.0 programs remain forward-compatible when they ship:
 
-- **Mid-segment IP crossing detection** — v1.x. Two speed-≥1 IPs that swap
+- **Mid-segment IP crossing detection.** Two speed-≥1 IPs that swap
   positions in a single tick currently pass through each other; a future
   version may detect that crossing and treat it as a collision.
 - **Fingerprints / language extensions.** A discoverable mechanism for
-  optional opcode bundles, gated behind an explicit opt-in flag. Reserved
-  for v1.x+.
-- **Tracing JIT for hot loops** — v1.x+. An implementation concern, not a
+  optional opcode bundles, gated behind an explicit opt-in flag.
+- **Tracing JIT for hot loops** — an implementation concern, not a
   language change; will not affect program semantics.
-- **Standard-library overlays** (pre-written grid regions loaded by name) —
-  v1.x+.
+- **Standard-library overlays** (pre-written grid regions loaded by name).
 
 Implementations MAY define experimental opcodes outside the 35 listed here,
 but MUST gate them behind an explicit opt-in flag to preserve portability.
@@ -424,24 +421,22 @@ but MUST gate them behind an explicit opt-in flag to preserve portability.
 
 ## 11. Versioning & Conformance
 
-- This document describes **Windy v1.0**.
-- The v1.0 cut is a **major-version** change from v0.4. New language
-  surface: §3.7 wind speed (the `≫` / `≪` opcodes plus the speed-aware
-  movement rule), §3.8 IP collision merge, and the `134` trap exit code.
-  These features are **additive**: programs that never execute `≫` / `≪`
-  and never produce a collision behave identically under v0.4 and v1.0.
-  The reference implementation backs this guarantee with a per-case
-  conformance harness that runs every v0.4 case under v1.0 semantics
-  (`tests/conformance_v1.rs::v0_cases_pass_under_v1_mode`).
-- Implementations MUST expose the legacy gate as `--v0` (or an equivalent
-  named flag). With the gate **on**, the implementation MUST be
-  bit-identical to v0.4 — including a NOP-with-warning decode for `≫`
-  and `≪`. With the gate **off** (the default), the implementation MUST
-  pass both `conformance/cases.json` and `conformance/v1.json`
-  byte-for-byte on stdout + exit code.
-- Subsequent additive changes that preserve existing program behavior bump
-  the minor version (e.g., v1.1).
-- A future breaking change bumps the major version (e.g., v2.0).
+- This document describes **Windy v2.0**.
+- v1.0 introduced wind speed (§3.7) and IP collision merge (§3.8) as
+  the language's only semantics, alongside a runtime gate (`--v0`)
+  that could disable both and reproduce the pre-1.0 surface bit-for-bit.
+- v2.0 removes that runtime gate. The wind-speed and collision-merge
+  semantics are now the only behavior the language ever exhibits;
+  programs that need the older surface should pin a v1.x release of
+  the reference implementation. Existing programs that don't use `≫`,
+  `≪`, or coincident IPs are unaffected.
+- Implementations MUST pass both `conformance/cases.json` and
+  `conformance/v1.json` byte-for-byte on stdout + exit code. The
+  per-case JSON shape is language-neutral so non-Rust ports can
+  reuse the same goldens.
+- Subsequent additive changes that preserve existing program behavior
+  bump the minor version (e.g. v2.1). Future breaking changes bump
+  the major version.
 - The interpreter `windy version` subcommand MUST report the language
   version it implements.
 

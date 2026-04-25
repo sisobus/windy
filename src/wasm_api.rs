@@ -47,7 +47,6 @@ pub fn run(
     stdin: &str,
     seed: Option<u64>,
     max_steps: Option<u64>,
-    v1: Option<bool>,
 ) -> RunResult {
     let mut stdin_bytes = stdin.as_bytes();
     let mut stdout = Vec::<u8>::new();
@@ -57,10 +56,6 @@ pub fn run(
         RunOptions {
             seed,
             max_steps,
-            // v1 semantics are the default in 1.0; callers pass
-            // `false` only when the playground's "v0 legacy" toggle is
-            // on. `null` from JS means "use the language default".
-            v1: v1.unwrap_or(true),
             stdin: &mut stdin_bytes,
             stdout: &mut stdout,
             stderr: &mut stderr,
@@ -95,25 +90,20 @@ pub struct Session {
 #[wasm_bindgen]
 impl Session {
     /// Construct a session and emit the sisobus banner to captured
-    /// stderr if the source text carries the watermark. `v1` selects
-    /// the v1.0 semantics — wind speed + IP collision merge — and is
-    /// the language default. Pass `false` to opt back into v0.4
-    /// legacy behavior; `null` means "use the language default" and
-    /// matches the CLI without `--v0`.
+    /// stderr if the source text carries the watermark.
     #[wasm_bindgen(constructor)]
     pub fn new(
         source: &str,
         stdin: &str,
         seed: Option<u64>,
         max_steps: Option<u64>,
-        v1: Option<bool>,
     ) -> Session {
         let (grid, scan_text) = parse(source);
         let mut stderr = Vec::<u8>::new();
         if detect(&scan_text) {
             let _ = writeln!(stderr, "{}", banner());
         }
-        let vm = Vm::with_v1(grid, seed, max_steps, v1.unwrap_or(true));
+        let vm = Vm::new(grid, seed, max_steps);
         Session {
             vm,
             stdin: stdin.as_bytes().to_vec(),
@@ -142,8 +132,7 @@ impl Session {
     }
 
     /// Run until halt, trap, or the step cap. Returns 0 on clean halt,
-    /// 124 on `max_steps` abort, 134 on runtime trap (v1.0 CALM at
-    /// speed 1).
+    /// 124 on `max_steps` abort, 134 on runtime trap (CALM at speed 1).
     pub fn run_to_halt(&mut self) -> i32 {
         loop {
             if self.vm.trapped {
@@ -166,7 +155,7 @@ impl Session {
         self.vm.halted
     }
 
-    /// True if a runtime trap has fired (v1.0 CALM at speed 1).
+    /// True if a runtime trap has fired (CALM at speed 1, SPEC §3.7).
     /// `halted` may not yet be `true` when this flips — the trap is
     /// surfaced at end-of-tick.
     #[wasm_bindgen(getter)]
@@ -179,17 +168,8 @@ impl Session {
         self.vm.steps
     }
 
-    /// True when the v1.0 semantics are enabled for this session
-    /// (i.e. legacy `--v0` is OFF). Useful for the playground to
-    /// render the speed badge and trap-state row only when relevant.
-    #[wasm_bindgen(getter)]
-    pub fn v1(&self) -> bool {
-        self.vm.v1
-    }
-
     /// Speed of the IP at `ip_index` (birth order) as a decimal string;
-    /// JS coerces to BigInt. Returns `"1"` for v0.4 sessions or out-of-
-    /// range indices.
+    /// JS coerces to BigInt. Returns `"1"` for out-of-range indices.
     pub fn speed_for(&self, ip_index: u32) -> String {
         self.vm
             .ips

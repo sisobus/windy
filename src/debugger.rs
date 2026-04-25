@@ -161,11 +161,8 @@ fn render_frame(out: &mut dyn Write, vm: &Vm, captured: &[u8]) -> io::Result<()>
 /// Reads commands from `stdin_commands`. The VM's own stdin is fixed as
 /// an empty byte slice — Windy programs under the debugger can't prompt
 /// for input because the real stdin is owned by the debugger loop.
-/// `v1` selects the v1.0 semantics — wind speed + IP collision merge.
-/// Pass `false` to opt into the v0.4 legacy mode that the CLI exposes
-/// as `--v0`.
-pub fn debug_source(source: &str, stdin_commands: &mut dyn BufRead, v1: bool) -> i32 {
-    debug_source_inner(source, stdin_commands, &mut io::stderr(), &mut io::stdout(), v1)
+pub fn debug_source(source: &str, stdin_commands: &mut dyn BufRead) -> i32 {
+    debug_source_inner(source, stdin_commands, &mut io::stderr(), &mut io::stdout())
 }
 
 pub(crate) fn debug_source_inner(
@@ -173,7 +170,6 @@ pub(crate) fn debug_source_inner(
     commands: &mut dyn BufRead,
     stderr: &mut dyn Write,
     ui: &mut dyn Write,
-    v1: bool,
 ) -> i32 {
     let (grid, scan_text) = parse(source);
     if detect(&scan_text) {
@@ -183,7 +179,7 @@ pub(crate) fn debug_source_inner(
     let mut captured_out: Vec<u8> = Vec::new();
     let mut captured_err: Vec<u8> = Vec::new();
     let mut empty_stdin: &[u8] = b"";
-    let mut vm = Vm::with_v1(grid, None, None, v1);
+    let mut vm = Vm::new(grid, None, None);
 
     loop {
         let _ = render_frame(ui, &vm, &captured_out);
@@ -235,14 +231,10 @@ mod tests {
     use std::io::Cursor;
 
     fn drive(source: &str, commands: &str) -> (i32, String, String) {
-        drive_v1(source, commands, false)
-    }
-
-    fn drive_v1(source: &str, commands: &str, v1: bool) -> (i32, String, String) {
         let mut cmds = Cursor::new(commands.as_bytes());
         let mut stderr: Vec<u8> = Vec::new();
         let mut ui: Vec<u8> = Vec::new();
-        let code = debug_source_inner(source, &mut cmds, &mut stderr, &mut ui, v1);
+        let code = debug_source_inner(source, &mut cmds, &mut stderr, &mut ui);
         (
             code,
             String::from_utf8(ui).unwrap(),

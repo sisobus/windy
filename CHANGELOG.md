@@ -8,21 +8,52 @@ The crate on crates.io is `windy-lang`; the language and the installed
 binary are both `windy`. References to "the crate" below always mean
 `windy-lang` v$X.Y.Z`.
 
-## [Unreleased]
+## [2.0.0] — 2026-04-25
 
-### Added
+Breaking-change cut. Removes the v0.4 legacy gate and tightens the
+language surface to a single set of semantics. No new features.
 
-- **`examples/anthem.wnd`** — a 46-row SE diagonal wind cascade
-  that prints "code flows like wind". The IP enters at speed 1,
-  hits `≫` to switch to speed 2, then `↘` flips it to south-east
-  and it cascades down the diagonal, landing on a `,` print cell
-  every (+2, +2) step. The intermediate cells along the cascade
-  carry `↗` (NE) crosswind glyphs — invisible to the IP at speed
-  2, but lethal at speed 1: drop the `≫` and the very first `↗`
-  flings the IP up-right into the empty far field, where it
-  drifts to a `--max-steps` abort. So the message reaches stdout
-  if and only if the wind is fast enough. Both the on-disk file
-  and the playground EXAMPLES string carry this layout.
+### Removed
+
+- **`--v0` CLI flag.** The wind-speed (≫/≪) and IP-collision-merge
+  semantics introduced in v1.0 were always the language going
+  forward; the legacy gate let callers opt into the pre-1.0 surface
+  for migration. v2.0 deletes the gate. Programs that depended on
+  the legacy surface should pin a v1.x release of the reference
+  implementation, or `git checkout` the repo at the v1.0.0 tag.
+- **`RunOptions.v1` field**, **`Vm::with_v1` constructor**, and the
+  wasm `run` / `Session::new` `v1: Option<bool>` parameter — public
+  API surface that only existed to support the gate.
+- **`v0_*` unit tests** and `tests/conformance_v1.rs::v0_cases_pass_under_v1_mode`
+  (the additivity guard). Both were proving "v0 semantics still
+  reachable when the gate is set"; with the gate gone, neither has
+  anything to prove.
+- **Web playground v0 toggle** (was already gone in 1.0's late
+  cleanup; v2.0 removes the last code paths that referenced it).
+
+### Changed
+
+- **`examples/anthem.wnd`** rewritten as a clockwise diagonal-
+  cornered spiral. The IP rides the perimeter at speed 2,
+  printing one character of "code flows like wind" per non-corner
+  cell, with `↘ ↙ ↖` corner glyphs visible in the source. The
+  earlier vertical cascade and box-spiral versions are gone.
+- **SPEC** bumped to v2.0. §9 drops the `--v0` row; §11
+  Versioning rewrites the conformance promise to refer only to
+  the current single-mode language.
+- **Crate version 1.0.0 → 2.0.0** on crates.io as `windy-lang`.
+
+### Migration
+
+- CLI: drop the `--v0` flag from your scripts. v1.0's default
+  (no flag = full v1 semantics) is now the only behavior.
+- Library: stop passing `v1: false` (or `v1: true`) when
+  constructing `RunOptions`; the field is gone. Replace
+  `Vm::with_v1(grid, seed, max, true)` with `Vm::new(grid, seed, max)`.
+- wasm: stop passing the trailing `v1` argument to `run()` /
+  `new Session(...)`; the parameter is gone.
+
+## [1.0.0] — 2026-04-25
 
 ### Changed
 

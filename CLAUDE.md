@@ -7,8 +7,9 @@
 
 ## 한눈에
 
-- **현재 버전**: 크레이트 1.0.0, 언어 SPEC v1.0. 35 opcode (33 + ≫/≪),
-  동시 IP + 풍속 + 충돌 merge. v0.4는 `--v0` legacy gate로 보존.
+- **현재 버전**: 크레이트 2.0.0, 언어 SPEC v2.0. 35 opcode (33 + ≫/≪),
+  동시 IP + 풍속 + 충돌 merge. v0.4 legacy gate(`--v0`)는 v2.0에서 제거됨
+  — 과거 surface가 필요하면 v1.x release 또는 v1.0.0 git 태그를 pin.
 - **배포 중**: 브라우저 플레이그라운드 [windy.sisobus.com](https://windy.sisobus.com),
   WASI 바이너리 [windy.sisobus.com/windy.wasm](https://windy.sisobus.com/windy.wasm).
   CI는 `main` push 시 자동 build → S3 sync → CloudFront `/*` invalidate.
@@ -44,15 +45,13 @@ v1.0 정식 cut 완료. 다음 세션 우선순위:
 - GUST/CALM 디스패처 (CALM at 1 = 트랩)
 - 충돌 merge pass (birth-order, 스택 concat, 벡터 합 clip, speed max,
   strmode reset, `(0,0)` ⇒ die)
-- CLI: `windy run [--v0] FILE` / `windy debug [--v0] FILE`
-- wasm `Session::new(.., v1?)`, `run(.., v1?)` (둘 다 `null` ⇒ v1 default),
-  getter `session.v1` / `session.trapped` / `session.speed_for(i)`
-- 75 unit tests + conformance/v1.json + `tests/conformance_v1.rs` 하네스 +
-  additivity 테스트 (v0 cases 모두 v1 모드에서 동일 출력)
-- `examples/gust.wnd`, `examples/storm.wnd`
-- 플레이그라운드: 툴바에 "legacy v0" 체크박스 (default OFF = v1),
-  Opcode Reference에 ≫/≪ 통합, 디버그 state 패널에 speed/trap 표시,
-  exit 134 → "trap" 라벨
+- CLI: `windy run FILE` / `windy debug FILE` (no mode flags — v2.0
+  removed `--v0`)
+- wasm `Session::new(...)`, `run(...)` — 4 params each, no v1 toggle
+- 72 unit tests + conformance/v1.json + `tests/conformance_v1.rs` 하네스
+- `examples/gust.wnd`, `examples/storm.wnd`, `examples/anthem.wnd`
+- 플레이그라운드: Opcode Reference에 ≫/≪ 통합, 디버그 state 패널에
+  speed/trap 표시, exit 134 → "trap" 라벨
 
 ## 개요
 
@@ -94,11 +93,10 @@ windy/
 │   ├── debugger.rs        # 터미널 인터랙티브 스텝 (ANSI + 박스 그리기)
 │   └── wasm_api.rs        # 브라우저 빌드용 wasm-bindgen 래퍼 (Session 등)
 ├── tests/
-│   ├── conformance.rs     # conformance/cases.json 로더 + 검증 (v0.4 surface, --v0 mode)
-│   └── conformance_v1.rs  # v1.json 로더 + additivity 가드 (v0 cases도
-│                          #   v1 모드에서 동일 출력 보장)
+│   ├── conformance.rs     # conformance/cases.json 로더 + 검증 (33 opcode core)
+│   └── conformance_v1.rs  # v1.json 로더 + 검증 (≫/≪ + 충돌 merge)
 ├── conformance/
-│   ├── cases.json         # v0.4 surface 언어 중립 골든 (29 cases)
+│   ├── cases.json         # core 33-opcode 골든 (29 cases)
 │   └── v1.json            # v1.0 신규 골든 (4 cases — gust skip,
 │                          #   gust/calm cycle, calm@1 trap, 2× gust)
 ├── examples/
@@ -108,7 +106,7 @@ windy/
 │   ├── stars.wnd          # 별 삼각형, stack pre-load + 카운터 루프
 │   ├── factorial.wnd      # 1!..10!, BigInt 자랑
 │   ├── split.wnd          # 동시 IP (`t`) 데모, 두 IP 모두 깨끗하게 halt
-│   ├── gust.wnd           # 풍속 (≫/≪) 데모 — `--v0`로 v0.4 reading 비교
+│   ├── gust.wnd           # 풍속 (≫/≪) 데모 — 가속하면 "WINDY" 출력
 │   └── storm.wnd          # 충돌 merge head-on death 데모
 ├── web/                   # 정적 플레이그라운드 (CI가 build해서 S3에 sync)
 │   ├── index.html         # 에디터 + Run/Debug + Opcode Reference panel
@@ -134,8 +132,8 @@ windy/
    overlay)는 §10에 카탈로그. v1.0 결정 회고는 `docs/v1.0-design.md`
    참고.
 3. **테스트는 `cargo test`.** 유닛 테스트는 `#[cfg(test)]` 블록, 통합은
-   `tests/conformance.rs` (v0.4 surface, `--v0` 모드) +
-   `tests/conformance_v1.rs` (v1.0 신규 + additivity 가드).
+   `tests/conformance.rs` (core 33-opcode 골든) + `tests/conformance_v1.rs`
+   (풍속 + 충돌 merge 골든).
 4. **커밋 메시지**는 영문/한글 평서문, body는 명확히. why > what.
 5. **`sisobus` 워터마크는 언어의 정체성.** `banner()`이 `CARGO_PKG_VERSION`
    따라 자동 갱신되도록 박혀 있음. 변조/삭제 금지.
@@ -288,7 +286,19 @@ Python 인터프리터 + rich 디버거 + WASI output-baking stopgap. v0.2에서
 - additivity guard (`tests/conformance_v1.rs::v0_cases_pass_under_v1_mode`)
   유지. cases.json은 여전히 v0.4 surface goldens, v1.json은 v1.0 신규.
 
-### v1.x+
+### v2.0 (legacy gate 제거) ✅
+
+- `--v0` CLI 플래그 + `RunOptions.v1` + `Vm::with_v1` + wasm
+  `v1: Option<bool>` 파라미터 + v0_* unit tests + additivity guard
+  모두 삭제. v1.0의 기능(풍속/충돌 merge)은 그대로 유지, "끄는 옵션"만
+  사라짐.
+- SPEC §9 `--v0` row 제거, §11 conformance 단일 모드로 재서술.
+- `examples/anthem.wnd`을 직선 cascade에서 시계방향 spiral(대각선
+  corner)로 재설계.
+- 크레이트 2.0.0. 과거 호환이 필요하면 v1.x release 또는 v1.0.0 git
+  태그 pin.
+
+### v2.x+
 
 SPEC §10 참고. 핑거프린트/opcode 확장 메커니즘, hot-loop tracing JIT,
 standard-library overlays. 충돌 mid-segment 검출도 여기.

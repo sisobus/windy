@@ -59,7 +59,6 @@ fn conformance() {
             windy::RunOptions {
                 seed: case.seed,
                 max_steps: case.max_steps,
-                v1: false,
                 stdin: &mut stdin,
                 stdout: &mut stdout,
                 stderr: &mut stderr,

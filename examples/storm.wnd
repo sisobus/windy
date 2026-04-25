@@ -4,21 +4,14 @@
   ----------------------------------------------------------------------
   IP collision merge as a runtime garbage collector.
 
-  Run two ways:
-
-      windy run                 examples/storm.wnd  →  exit 0, empty stdout
-      windy run --v0 --max-steps 12 examples/storm.wnd
-                                                    →  exit 124, empty stdout
-      (DO NOT run with --v0 unbounded — see "Why v0 fork-bombs" below.)
-
   The source is a one-row 12-cell program. Two IPs build complementary
-  stacks ("CDDC" and "BAAB") before colliding head-on at column 4. In
-  v1.0 the SPEC §3.8 collision pass spots them at the same cell on the
-  same tick, computes their direction sum (-1, 0) + (1, 0) = (0, 0)
+  stacks ("CDDC" and "BAAB") before colliding head-on at column 4 on
+  tick 15. The SPEC §3.8 collision pass spots them at the same cell on
+  the same tick, computes their direction sum (-1, 0) + (1, 0) = (0, 0)
   ("head-on storm cancels itself"), and removes them both. The live
   IP list empties → program halts cleanly.
 
-  Tick-by-tick (v1.0 default):
+  Tick-by-tick:
 
     tick  IP0 cell  IP0 effect                   IP1 cell  IP1 effect
     ----  --------  ---------------------------  --------  -----------------
@@ -52,12 +45,9 @@
   east through "CD", bounced off `←`, then revisited "DC" going back
   west — picking up "D" and "C" a second time before the collision.
   Stack ends up as [A,B,C,D,D,C] = "ABCDDC". IP1 did the symmetric
-  thing on the western side: traversed "BA" going west (note: it
-  enters from the east edge of the segment, so it sees 'B' first
-  then 'A'), bounced off the `→` at column 0, came back through
-  "AB", arriving at the collision with stack [B,A,A,B] = "BAAB".
-  The birth-order concat that the merge pass would have produced
-  is visible above.
+  thing on the western side: traversed "BA" going west, bounced off
+  the `→` at column 0, came back through "AB", arriving at the
+  collision with stack [B,A,A,B] = "BAAB".
 
   The collision rule (SPEC §3.8 IP Collision):
 
@@ -71,21 +61,11 @@
          strmode  : forced off
     4. Remove the absorbed IPs from the live list.
 
-  Why v0 fork-bombs
-  ------------------
-  Without the collision pass (i.e. under --v0), nothing absorbs the
-  IPs that share cell (5,0) on tick 15 — they pass through each other
-  and keep cycling. Worse: every time an IP visits cell (5,0) it hits
-  `t` and spawns *another* child. By tick 15 the cycle re-enters `t`
-  for both IP0 and IP1 simultaneously, doubling the IP count. The
-  population grows exponentially — within ~25 ticks it's enough to
-  exhaust memory. So `--max-steps 12` is mandatory under --v0; the
-  run aborts with exit 124 before the cascade gets going.
-
-  This is the v1.0 collision merge earning its keep: it's not just a
-  semantic feature, it's a runtime garbage collector for IPs that
-  end up sharing a cell. Without it, programs that use `t` near a
-  cycling layout become fork bombs. v1 makes the same source safe.
+  The merge pass is also a runtime garbage collector for IPs that
+  end up sharing a cell. Without it, this layout would fork-bomb:
+  every visit to (5,0) hits `t` and spawns another child, doubling
+  the population on every cycle. The collision pass turns that
+  pathological case into a clean exit-0.
 
   Things to try:
 
@@ -94,7 +74,7 @@
       of 5 codepoints, and see them both vanish on tick 15.
 
     - Slow down the cleanup with --max-steps cap:
-        windy run --max-steps 14 examples/storm.wnd       (still v1)
+        windy run --max-steps 14 examples/storm.wnd
       The IPs collide on tick 15, so a cap of 14 aborts before the
       collision and the program exits 124 instead of 0. Useful for
       the playground when you want to inspect mid-run state.
