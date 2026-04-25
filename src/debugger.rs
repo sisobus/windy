@@ -14,7 +14,7 @@
 //! accepts streams as parameters rather than owning them — see the
 //! module comment in `vm.rs`.
 
-use crate::easter::{detect, BANNER};
+use crate::easter::{banner, detect};
 use crate::opcodes::{decode_cell, Op};
 use crate::parser::parse;
 use crate::vm::Vm;
@@ -173,7 +173,7 @@ pub(crate) fn debug_source_inner(
 ) -> i32 {
     let (grid, scan_text) = parse(source);
     if detect(&scan_text) {
-        let _ = writeln!(stderr, "{}", BANNER);
+        let _ = writeln!(stderr, "{}", banner());
     }
 
     let mut captured_out: Vec<u8> = Vec::new();

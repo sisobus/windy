@@ -11,7 +11,7 @@
 //!   the caller drives execution via `step()` / `run_to_halt()` and
 //!   introspects IP / stack / grid / captured stdout between ticks.
 
-use crate::{decode_cell, detect, parse, run_source, Op, RunOptions, Vm, BANNER};
+use crate::{banner, decode_cell, detect, parse, run_source, Op, RunOptions, Vm};
 use num_traits::ToPrimitive;
 use std::io::Write;
 use wasm_bindgen::prelude::*;
@@ -101,7 +101,7 @@ impl Session {
         let (grid, scan_text) = parse(source);
         let mut stderr = Vec::<u8>::new();
         if detect(&scan_text) {
-            let _ = writeln!(stderr, "{}", BANNER);
+            let _ = writeln!(stderr, "{}", banner());
         }
         let vm = Vm::new(grid, seed, max_steps);
         Session {

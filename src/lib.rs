@@ -14,7 +14,7 @@ pub mod vm;
 pub mod wasm_api;
 
 pub use debugger::debug_source;
-pub use easter::{detect, BANNER, SIGNATURE};
+pub use easter::{banner, detect, SIGNATURE};
 pub use grid::{Grid, Ip, SPACE};
 pub use opcodes::{decode_cell, Op};
 pub use parser::{normalize, parse};

@@ -14,7 +14,7 @@
 //! than stored on the Vm. This lets the debugger inspect its captured
 //! stdout between ticks without fighting the borrow checker.
 
-use crate::easter::{detect, BANNER};
+use crate::easter::{banner, detect};
 use crate::grid::{Grid, Ip, SPACE};
 use crate::opcodes::{decode_cell, Op};
 use crate::parser::parse;
@@ -378,7 +378,7 @@ impl Vm {
 pub fn run_source(source: &str, opts: RunOptions) -> ExitCode {
     let (grid, scan_text) = parse(source);
     if detect(&scan_text) {
-        let _ = writeln!(opts.stderr, "{}", BANNER);
+        let _ = writeln!(opts.stderr, "{}", banner());
     }
     let mut vm = Vm::new(grid, opts.seed, opts.max_steps);
     vm.run(opts.stdin, opts.stdout, opts.stderr)
