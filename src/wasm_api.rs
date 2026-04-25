@@ -192,16 +192,41 @@ impl Session {
     }
 
     /// Primary IP's stack, bottom to top, as decimal strings. JS
-    /// coerces entries to BigInt as needed.
+    /// coerces entries to BigInt as needed. Equivalent to
+    /// `stack_for(0)` when at least one IP is alive.
     pub fn stack(&self) -> Vec<String> {
+        self.stack_for(0)
+    }
+
+    pub fn stack_len(&self) -> u32 {
+        self.stack_len_for(0)
+    }
+
+    /// Stack of the IP at `ip_index` (birth order), bottom to top, as
+    /// decimal strings. Out-of-range indices return an empty vec, so
+    /// the JS side can call without bounds-checking against `ip_count`.
+    pub fn stack_for(&self, ip_index: u32) -> Vec<String> {
         self.vm
-            .first_ip()
+            .ips
+            .get(ip_index as usize)
             .map(|c| c.stack.iter().map(|v| v.to_string()).collect())
             .unwrap_or_default()
     }
 
-    pub fn stack_len(&self) -> u32 {
-        self.vm.first_ip().map(|c| c.stack.len() as u32).unwrap_or(0)
+    pub fn stack_len_for(&self, ip_index: u32) -> u32 {
+        self.vm
+            .ips
+            .get(ip_index as usize)
+            .map(|c| c.stack.len() as u32)
+            .unwrap_or(0)
+    }
+
+    pub fn strmode_for(&self, ip_index: u32) -> bool {
+        self.vm
+            .ips
+            .get(ip_index as usize)
+            .map(|c| c.strmode)
+            .unwrap_or(false)
     }
 
     /// Captured stdout so far (UTF-8 lossy).

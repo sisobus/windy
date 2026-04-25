@@ -295,19 +295,58 @@ function renderState() {
     .join('');
 }
 
-function renderStack() {
-  const values = session.stack();
-  stackLenEl.textContent = `(${values.length})`;
-  if (values.length === 0) {
-    stackView.innerHTML = '<span class="empty">(empty)</span>';
-    return;
-  }
-  // Top of the stack first.
+function renderOneStack(values) {
+  if (values.length === 0) return '<span class="empty">(empty)</span>';
   const shown = values.slice(-40).reverse();
   const hidden = values.length - shown.length;
   const lines = shown.map((v) => escHtml(v));
   if (hidden > 0) lines.push(`… (+${hidden} below)`);
-  stackView.textContent = lines.join('\n');
+  return lines.join('\n');
+}
+
+function renderStack() {
+  const ipCount = Number(session.ip_count);
+  if (ipCount === 0) {
+    stackLenEl.textContent = '';
+    stackView.innerHTML = '<span class="empty">(no live IPs)</span>';
+    return;
+  }
+  if (ipCount === 1) {
+    // Single-IP programs keep the original compact rendering.
+    const values = session.stack();
+    stackLenEl.textContent = `(${values.length})`;
+    stackView.innerHTML = '';
+    const pre = document.createElement('pre');
+    pre.className = 'stack-body';
+    pre.innerHTML = renderOneStack(values);
+    stackView.appendChild(pre);
+    return;
+  }
+  // Multi-IP — one labelled section per live IP, in birth order.
+  const totalEntries = (() => {
+    let n = 0;
+    for (let i = 0; i < ipCount; i++) n += Number(session.stack_len_for(i));
+    return n;
+  })();
+  stackLenEl.textContent = `(${ipCount} IPs · ${totalEntries})`;
+  stackView.innerHTML = '';
+  for (let i = 0; i < ipCount; i++) {
+    const values = session.stack_for(i);
+    const section = document.createElement('div');
+    section.className = 'stack-section';
+
+    const head = document.createElement('div');
+    head.className = 'stack-section-head';
+    head.textContent = `IP ${i} (${values.length})`;
+    section.appendChild(head);
+
+    const pre = document.createElement('pre');
+    pre.className = 'stack-body';
+    pre.innerHTML = renderOneStack(values);
+    section.appendChild(pre);
+
+    stackView.appendChild(section);
+  }
 }
 
 function renderDebug() {
