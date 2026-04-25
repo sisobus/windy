@@ -474,7 +474,6 @@ const stateView = $('state-view');
 const stackView = $('stack-view');
 const stackLenEl = $('stack-len');
 const debugStdoutEl = $('debug-stdout');
-const shareBtn = $('btn-share');
 
 let wasmReady = false;
 let session = null;
@@ -798,22 +797,6 @@ function scheduleHashWrite() {
   }, 250);
 }
 
-async function copyPermalink() {
-  const src = sourceEl.value;
-  const url = src
-    ? `${location.origin}${location.pathname}${PERMALINK_PREFIX}${encodeSourceForHash(src)}`
-    : `${location.origin}${location.pathname}`;
-  try {
-    await navigator.clipboard.writeText(url);
-    const old = shareBtn.textContent;
-    shareBtn.textContent = 'Copied';
-    setTimeout(() => { shareBtn.textContent = old; }, 1200);
-  } catch (_) {
-    // Older browsers / insecure contexts: prompt with the URL.
-    prompt('Permalink', url);
-  }
-}
-
 // ---------- Wire up ----------
 
 pickerEl.addEventListener('change', (e) => {
@@ -826,7 +809,6 @@ stepBtn.addEventListener('click', doStep);
 continueBtn.addEventListener('click', doContinue);
 restartBtn.addEventListener('click', restartDebug);
 exitDebugBtn.addEventListener('click', exitDebug);
-shareBtn.addEventListener('click', copyPermalink);
 
 sourceEl.addEventListener('input', scheduleHashWrite);
 

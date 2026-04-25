@@ -93,7 +93,7 @@ header h1 {
 .toolbar input[type="number"] { width: 9em; }
 
 .toolbar button {
-  padding: 0.35rem 1.2rem;
+  padding: 0.3rem 0.85rem;
   background: var(--accent);
   color: #fff;
   border: none;
@@ -102,6 +102,10 @@ header h1 {
   cursor: pointer;
   font: inherit;
   line-height: 1.2;
+  /* Disable iOS/Android double-tap zoom — important for the
+     debug Step button which the user often taps in rapid
+     succession. */
+  touch-action: manipulation;
 }
 
 .toolbar button.secondary {
@@ -253,6 +257,9 @@ code {
   -webkit-user-select: none;
   /* Remove iOS tap highlight halo; we do our own feedback. */
   -webkit-tap-highlight-color: transparent;
+  /* Disable double-tap zoom — rapid taps on the grid step the
+     VM, and the user shouldn't accidentally pinch-zoom. */
+  touch-action: manipulation;
 }
 
 .grid-view:focus {
@@ -448,9 +455,8 @@ code {
   }
 
   .toolbar button {
-    padding: 0.55rem 0.9rem;
-    flex: 1 1 auto;
-    min-height: 44px;
+    padding: 0.4rem 0.8rem;
+    min-height: 38px;
   }
 
   .tap-hint { display: inline; }
