@@ -157,39 +157,51 @@ impl Session {
         self.vm.steps
     }
 
+    /// Number of live IPs (SPEC §3.5). `1` for single-IP programs;
+    /// grows after each `t` (SPLIT) executes.
+    #[wasm_bindgen(getter)]
+    pub fn ip_count(&self) -> u32 {
+        self.vm.ips.len() as u32
+    }
+
+    // ---- "primary" IP accessors (oldest live IP, birth order) ----
+
     #[wasm_bindgen(getter)]
     pub fn ip_x(&self) -> i64 {
-        self.vm.ip.x
+        self.vm.first_ip().map(|c| c.ip.x).unwrap_or(0)
     }
 
     #[wasm_bindgen(getter)]
     pub fn ip_y(&self) -> i64 {
-        self.vm.ip.y
+        self.vm.first_ip().map(|c| c.ip.y).unwrap_or(0)
     }
 
     #[wasm_bindgen(getter)]
     pub fn dx(&self) -> i64 {
-        self.vm.ip.dx
+        self.vm.first_ip().map(|c| c.ip.dx).unwrap_or(1)
     }
 
     #[wasm_bindgen(getter)]
     pub fn dy(&self) -> i64 {
-        self.vm.ip.dy
+        self.vm.first_ip().map(|c| c.ip.dy).unwrap_or(0)
     }
 
     #[wasm_bindgen(getter)]
     pub fn strmode(&self) -> bool {
-        self.vm.strmode
+        self.vm.first_ip().map(|c| c.strmode).unwrap_or(false)
     }
 
-    /// Stack contents as decimal strings, bottom to top. JS coerces each
-    /// entry to a `BigInt` as needed.
+    /// Primary IP's stack, bottom to top, as decimal strings. JS
+    /// coerces entries to BigInt as needed.
     pub fn stack(&self) -> Vec<String> {
-        self.vm.stack.iter().map(|v| v.to_string()).collect()
+        self.vm
+            .first_ip()
+            .map(|c| c.stack.iter().map(|v| v.to_string()).collect())
+            .unwrap_or_default()
     }
 
     pub fn stack_len(&self) -> u32 {
-        self.vm.stack.len() as u32
+        self.vm.first_ip().map(|c| c.stack.len() as u32).unwrap_or(0)
     }
 
     /// Captured stdout so far (UTF-8 lossy).
@@ -202,11 +214,14 @@ impl Session {
         String::from_utf8_lossy(&self.stderr).into_owned()
     }
 
-    /// Human-readable name of the opcode the IP is currently sitting on.
-    /// Includes the digit value as a parenthetical when the cell is
-    /// `PUSH_DIGIT`.
+    /// Human-readable name of the opcode under the primary IP.
+    /// Appends the digit value for `PUSH_DIGIT`.
     pub fn current_op(&self) -> String {
-        let cell = self.vm.grid.get(self.vm.ip.x, self.vm.ip.y);
+        let ctx = match self.vm.first_ip() {
+            Some(c) => c,
+            None => return "—".to_string(),
+        };
+        let cell = self.vm.grid.get(ctx.ip.x, ctx.ip.y);
         let (op, operand) = decode_cell(&cell);
         if op == Op::PushDigit {
             format!("{} ({})", op.name(), operand)
@@ -215,9 +230,26 @@ impl Session {
         }
     }
 
-    /// Codepoint of the cell under the IP (helpful for status lines).
+    /// Codepoint of the cell under the primary IP.
     pub fn current_cell(&self) -> u32 {
-        self.vm.grid.get(self.vm.ip.x, self.vm.ip.y).to_u32().unwrap_or(0)
+        let ctx = match self.vm.first_ip() {
+            Some(c) => c,
+            None => return 0,
+        };
+        self.vm.grid.get(ctx.ip.x, ctx.ip.y).to_u32().unwrap_or(0)
+    }
+
+    /// Flattened `(x, y, dx, dy)` of every live IP, in birth order. JS
+    /// coerces each entry to BigInt; length is `4 * ip_count`.
+    pub fn ip_positions(&self) -> Vec<i64> {
+        let mut out = Vec::with_capacity(self.vm.ips.len() * 4);
+        for c in &self.vm.ips {
+            out.push(c.ip.x);
+            out.push(c.ip.y);
+            out.push(c.ip.dx);
+            out.push(c.ip.dy);
+        }
+        out
     }
 
     /// Flattened `width * height` grid of codepoints starting at

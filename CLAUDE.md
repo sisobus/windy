@@ -89,7 +89,7 @@ cargo test --test conformance       # conformance만
 
 ## v0.2 진행 상황
 
-- [x] Rust 크레이트 스캐폴드, 34 opcode VM, clap CLI.
+- [x] Rust 크레이트 스캐폴드, 전체 opcode VM, clap CLI.
 - [x] `conformance/cases.json` + Rust 하네스 — 26 케이스.
 - [x] Python 구현 제거, Rust를 루트로 승격.
 - [x] `debug` 서브커맨드 — 터미널 기반 스텝 실행 (ANSI 이스케이프 + Unicode
@@ -104,12 +104,34 @@ cargo test --test conformance       # conformance만
 - [x] `web/` 정적 플레이그라운드. HTML + CSS + JS. 에디터(`<textarea>`),
       예제 picker, seed / max-steps 옵션, stdout / stderr 패널, 다크 모드.
 - [x] `wasm-pack build --target web --release --out-dir web/pkg`로 빌드.
-      `web/`은 `python3 -m http.server -d web`로 그대로 서빙되고,
-      GitHub Pages에 복사하면 그대로 배포.
-- [ ] GitHub Actions: push → wasm-pack build → gh-pages branch 자동 배포.
-- [ ] 그리드 미니맵 / 스텝 실행을 브라우저에서도 — 현재는 stdout만.
+      `web/`은 `python3 -m http.server -d web`로 서빙, S3 등 정적 호스트에
+      그대로 복사.
+- [x] 브라우저 디버거 UI: `Session` wasm API (step / run_to_halt /
+      grid_slice / stack / 등) + Debug 모드 (그리드 뷰포트, 상태/스택/
+      stdout 패널, Step / Continue / Exit, Enter/s/c/q 키바인딩).
+- [ ] GitHub Actions(또는 S3 업로드): push → wasm-pack build → 정적 번들
+      배포 자동화. (사용자 환경에서 별도 설정 예정.)
 
-## v0.4+
+## v0.4 진행 상황 — 동시 IP (concurrent IPs)
 
-SPEC §10 참고. 동시 IP(`t`), 핑거프린트/opcode 확장, hot-loop tracing JIT,
+- [x] SPEC §3.5 / §3.6에 multi-IP 실행 모델 명세. `t` (SPLIT) opcode를
+      §4에 추가. IP별로 (position, direction, stack, strmode)를 독립 보유,
+      grid만 공유. 탄생 순서로 tick당 한 번씩 실행.
+- [x] VM 리팩터링: `Vm`이 `Vec<IpContext>` 보유. `step()`은 한 tick 전체
+      처리(모든 IP 한 번씩 → spawn promote → halted 제거). `@`는 해당 IP만
+      제거, IPs 비면 프로그램 종료. `max_steps`는 tick 기준.
+- [x] `t` 의미론: 현재 IP 위치 `(x, y)` 방향 `(dx, dy)`에서, 새 IP를
+      `(x - dx, y - dy)` 위치에 역방향 `(-dx, -dy)`으로 스폰. 빈 스택,
+      strmode off. 스폰한 IP가 다음 tick에 같은 `t`를 재실행하지 않도록
+      한 칸 뒤로 오프셋.
+- [x] Conformance 케이스 추가 (`split_in_strmode_pushes_116`,
+      `split_child_drifts_west_parent_halts`, `split_both_ips_share_grid_
+      independent_stacks`), Rust 유닛 테스트 4건 추가.
+- [x] wasm API: `Session.ip_count`, `Session.ip_positions()` 노출.
+      primary IP 접근자는 birth-order 최초 IP를 가리키도록 변경 (할트 시
+      안전한 기본값). 웹 debugger UI가 다중 IP 셀을 모두 하이라이트.
+
+## v0.5+
+
+SPEC §10 참고. 핑거프린트/opcode 확장, hot-loop tracing JIT,
 standard-library overlays.

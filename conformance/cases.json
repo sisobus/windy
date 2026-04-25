@@ -133,6 +133,25 @@
       "name": "fib_file",
       "source_file": "examples/fib.wnd",
       "expected_stdout": "0 1 1 2 3 5 8 13 21 34 "
+    },
+    {
+      "name": "split_in_strmode_pushes_116",
+      "source": "\"t\".@",
+      "expected_stdout": "116 "
+    },
+    {
+      "name": "split_child_drifts_west_parent_halts",
+      "source": "t.@",
+      "max_steps": 50,
+      "expected_exit": 124,
+      "expected_stdout": "0 "
+    },
+    {
+      "name": "split_both_ips_share_grid_independent_stacks",
+      "source": "t5.@@",
+      "max_steps": 40,
+      "expected_exit": 124,
+      "expected_stdout": "5 "
     }
   ]
 }

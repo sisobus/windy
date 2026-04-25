@@ -1,14 +1,18 @@
-//! Windy bytecode VM — main execution loop (SPEC §3.5).
+//! Windy bytecode VM — multi-IP execution loop (SPEC §3.5, §3.6, §4).
 //!
-//! All 34 opcodes are implemented per SPEC §4. Stack underflow yields 0
-//! (§3.3, §7). Division and modulo by zero push 0 (§7). `GRID_PUT`
-//! writes re-take effect on the next IP visit because cell decoding is
-//! on-demand (no external cache to invalidate).
+//! The VM holds an **ordered list of IP contexts** plus the shared grid.
+//! One `step()` advances every live IP once, in birth order, then promotes
+//! any newly spawned IPs from `pending_spawns` and removes IPs marked
+//! `halted` by `@` during the tick. `max_steps` counts ticks, not IP
+//! advances — this matches SPEC §3.6.
 //!
-//! The VM does **not** own its I/O streams — `step` / `run` accept them
-//! as `&mut dyn` parameters. This lets external drivers (the interactive
-//! debugger in `debugger.rs`, most obviously) inspect the captured stdout
-//! buffer between steps without fighting the borrow checker.
+//! Stack underflow yields 0 (§3.3, §7). Division and modulo by zero push
+//! 0 (§7). `GRID_PUT` writes re-take effect on the next visit because
+//! decoding is on-demand.
+//!
+//! Streams are passed as `&mut dyn` parameters to `step` / `run` rather
+//! than stored on the Vm. This lets the debugger inspect its captured
+//! stdout between ticks without fighting the borrow checker.
 
 use crate::easter::{detect, BANNER};
 use crate::grid::{Grid, Ip, SPACE};
@@ -64,12 +68,42 @@ pub struct RunOptions<'a> {
     pub stderr: &'a mut dyn Write,
 }
 
-pub struct Vm {
-    pub grid: Grid,
+/// Per-IP state. The grid is shared across the whole `Vm`; every other
+/// bit of VM state is per-IP and lives here.
+#[derive(Debug, Clone)]
+pub struct IpContext {
     pub ip: Ip,
     pub stack: Vec<BigInt>,
     pub strmode: bool,
+    /// Marked by `@`; the main loop removes halted IPs at the end of
+    /// the tick so other IPs can still observe this IP's position
+    /// during the same tick.
     pub halted: bool,
+}
+
+impl IpContext {
+    fn new_root() -> Self {
+        Self {
+            ip: Ip::default(),
+            stack: Vec::new(),
+            strmode: false,
+            halted: false,
+        }
+    }
+}
+
+pub struct Vm {
+    pub grid: Grid,
+    /// Ordered live-IP list (birth order, oldest first).
+    pub ips: Vec<IpContext>,
+    /// IPs spawned during the current tick. Promoted into `ips` at the
+    /// end of the tick so a freshly spawned IP does not run twice.
+    pending_spawns: Vec<IpContext>,
+    /// True once `ips` has been emptied. Latched for the benefit of
+    /// callers that inspect `Vm` between steps.
+    pub halted: bool,
+    /// Number of ticks executed so far (one tick = one pass over the
+    /// live IP list — SPEC §3.6).
     pub steps: u64,
     pub max_steps: Option<u64>,
     rng: ChaCha8Rng,
@@ -84,15 +118,21 @@ impl Vm {
         };
         Self {
             grid,
-            ip: Ip::default(),
-            stack: Vec::new(),
-            strmode: false,
+            ips: vec![IpContext::new_root()],
+            pending_spawns: Vec::new(),
             halted: false,
             steps: 0,
             max_steps,
             rng,
             warned: HashSet::new(),
         }
+    }
+
+    /// Convenience accessor for callers (debugger, wasm API) that want
+    /// to report "the IP" for single-IP programs. Returns the oldest
+    /// live IP, or `None` when the program has halted entirely.
+    pub fn first_ip(&self) -> Option<&IpContext> {
+        self.ips.first()
     }
 
     pub fn run(
@@ -113,36 +153,64 @@ impl Vm {
         ExitCode::Ok
     }
 
+    /// Execute one full tick: every live IP takes one step, in birth
+    /// order. IPs spawned via `t` during this tick wait until the next
+    /// tick; IPs that executed `@` are removed at the end of this tick.
     pub fn step(
         &mut self,
         stdin: &mut dyn Read,
         stdout: &mut dyn Write,
         stderr: &mut dyn Write,
     ) {
-        let cell = self.grid.get(self.ip.x, self.ip.y);
-        if self.strmode {
-            if cell.to_u32() == Some(STR_QUOTE) {
-                self.strmode = false;
-            } else {
-                self.push(cell.clone());
+        let n = self.ips.len();
+        for i in 0..n {
+            // Skip IPs that were halted earlier in this tick — should
+            // not happen under current semantics (halted IPs are removed
+            // only at end-of-tick, and can't be re-marked mid-tick),
+            // but cheap defense-in-depth.
+            if self.ips[i].halted {
+                continue;
             }
-        } else {
-            let (op, operand) = decode_cell(&cell);
-            self.execute(op, operand, &cell, stdin, stdout, stderr);
+            let cell = self.grid.get(self.ips[i].ip.x, self.ips[i].ip.y);
+            if self.ips[i].strmode {
+                if cell.to_u32() == Some(STR_QUOTE) {
+                    self.ips[i].strmode = false;
+                } else {
+                    self.ips[i].stack.push(cell.clone());
+                }
+            } else {
+                let (op, operand) = decode_cell(&cell);
+                self.execute(i, op, operand, &cell, stdin, stdout, stderr);
+            }
+            if !self.ips[i].halted {
+                self.ips[i].ip.advance();
+            }
         }
-        self.ip.advance();
+        // End of tick: promote spawns, drop halted IPs.
+        if !self.pending_spawns.is_empty() {
+            self.ips.extend(self.pending_spawns.drain(..));
+        }
+        self.ips.retain(|c| !c.halted);
+        if self.ips.is_empty() {
+            self.halted = true;
+        }
     }
 
-    fn pop(&mut self) -> BigInt {
-        self.stack.pop().unwrap_or_else(BigInt::zero)
+    fn pop_at(&mut self, i: usize) -> BigInt {
+        self.ips[i].stack.pop().unwrap_or_else(BigInt::zero)
     }
 
-    fn push(&mut self, v: BigInt) {
-        self.stack.push(v);
+    fn push_at(&mut self, i: usize, v: BigInt) {
+        self.ips[i].stack.push(v);
+    }
+
+    fn set_dir(&mut self, i: usize, d: (i64, i64)) {
+        self.ips[i].ip.set_dir(d.0, d.1);
     }
 
     fn execute(
         &mut self,
+        i: usize,
         op: Op,
         operand: u32,
         cell: &BigInt,
@@ -152,86 +220,101 @@ impl Vm {
     ) {
         match op {
             Op::Nop => {}
-            Op::Halt => self.halted = true,
-            Op::Trampoline => self.ip.advance(),
-            Op::MoveE => self.ip.set_dir(EAST.0, EAST.1),
-            Op::MoveNe => self.ip.set_dir(NE.0, NE.1),
-            Op::MoveN => self.ip.set_dir(NORTH.0, NORTH.1),
-            Op::MoveNw => self.ip.set_dir(NW.0, NW.1),
-            Op::MoveW => self.ip.set_dir(WEST.0, WEST.1),
-            Op::MoveSw => self.ip.set_dir(SW.0, SW.1),
-            Op::MoveS => self.ip.set_dir(SOUTH.0, SOUTH.1),
-            Op::MoveSe => self.ip.set_dir(SE.0, SE.1),
-            Op::Turbulence => {
-                let (dx, dy) = *WINDS.choose(&mut self.rng).unwrap();
-                self.ip.set_dir(dx, dy);
+            Op::Halt => self.ips[i].halted = true,
+            Op::Trampoline => self.ips[i].ip.advance(),
+            Op::Split => {
+                let here = self.ips[i].ip;
+                let new_ctx = IpContext {
+                    ip: Ip {
+                        x: here.x - here.dx,
+                        y: here.y - here.dy,
+                        dx: -here.dx,
+                        dy: -here.dy,
+                    },
+                    stack: Vec::new(),
+                    strmode: false,
+                    halted: false,
+                };
+                self.pending_spawns.push(new_ctx);
             }
-            Op::PushDigit => self.push(BigInt::from(operand)),
-            Op::StrMode => self.strmode = true,
+            Op::MoveE => self.set_dir(i, EAST),
+            Op::MoveNe => self.set_dir(i, NE),
+            Op::MoveN => self.set_dir(i, NORTH),
+            Op::MoveNw => self.set_dir(i, NW),
+            Op::MoveW => self.set_dir(i, WEST),
+            Op::MoveSw => self.set_dir(i, SW),
+            Op::MoveS => self.set_dir(i, SOUTH),
+            Op::MoveSe => self.set_dir(i, SE),
+            Op::Turbulence => {
+                let d = *WINDS.choose(&mut self.rng).unwrap();
+                self.set_dir(i, d);
+            }
+            Op::PushDigit => self.push_at(i, BigInt::from(operand)),
+            Op::StrMode => self.ips[i].strmode = true,
             Op::Add => {
-                let b = self.pop();
-                let a = self.pop();
-                self.push(a + b);
+                let b = self.pop_at(i);
+                let a = self.pop_at(i);
+                self.push_at(i, a + b);
             }
             Op::Sub => {
-                let b = self.pop();
-                let a = self.pop();
-                self.push(a - b);
+                let b = self.pop_at(i);
+                let a = self.pop_at(i);
+                self.push_at(i, a - b);
             }
             Op::Mul => {
-                let b = self.pop();
-                let a = self.pop();
-                self.push(a * b);
+                let b = self.pop_at(i);
+                let a = self.pop_at(i);
+                self.push_at(i, a * b);
             }
             Op::Div => {
-                let b = self.pop();
-                let a = self.pop();
-                self.push(if b.is_zero() { BigInt::zero() } else { a.div_floor(&b) });
+                let b = self.pop_at(i);
+                let a = self.pop_at(i);
+                let r = if b.is_zero() { BigInt::zero() } else { a.div_floor(&b) };
+                self.push_at(i, r);
             }
             Op::Mod => {
-                let b = self.pop();
-                let a = self.pop();
-                self.push(if b.is_zero() { BigInt::zero() } else { a.mod_floor(&b) });
+                let b = self.pop_at(i);
+                let a = self.pop_at(i);
+                let r = if b.is_zero() { BigInt::zero() } else { a.mod_floor(&b) };
+                self.push_at(i, r);
             }
             Op::Not => {
-                let a = self.pop();
-                self.push(if a.is_zero() { BigInt::one() } else { BigInt::zero() });
+                let a = self.pop_at(i);
+                self.push_at(i, if a.is_zero() { BigInt::one() } else { BigInt::zero() });
             }
             Op::Gt => {
-                let b = self.pop();
-                let a = self.pop();
-                self.push(if a > b { BigInt::one() } else { BigInt::zero() });
+                let b = self.pop_at(i);
+                let a = self.pop_at(i);
+                self.push_at(i, if a > b { BigInt::one() } else { BigInt::zero() });
             }
             Op::Dup => {
-                let top = self.pop();
-                self.push(top.clone());
-                self.push(top);
+                let top = self.pop_at(i);
+                self.push_at(i, top.clone());
+                self.push_at(i, top);
             }
             Op::Drop => {
-                let _ = self.pop();
+                let _ = self.pop_at(i);
             }
             Op::Swap => {
-                let b = self.pop();
-                let a = self.pop();
-                self.push(b);
-                self.push(a);
+                let b = self.pop_at(i);
+                let a = self.pop_at(i);
+                self.push_at(i, b);
+                self.push_at(i, a);
             }
             Op::IfH => {
-                let a = self.pop();
-                let (dx, dy) = if a.is_zero() { EAST } else { WEST };
-                self.ip.set_dir(dx, dy);
+                let a = self.pop_at(i);
+                self.set_dir(i, if a.is_zero() { EAST } else { WEST });
             }
             Op::IfV => {
-                let a = self.pop();
-                let (dx, dy) = if a.is_zero() { SOUTH } else { NORTH };
-                self.ip.set_dir(dx, dy);
+                let a = self.pop_at(i);
+                self.set_dir(i, if a.is_zero() { SOUTH } else { NORTH });
             }
             Op::PutNum => {
-                let a = self.pop();
+                let a = self.pop_at(i);
                 let _ = write!(stdout, "{} ", a);
             }
             Op::PutChr => {
-                let a = self.pop();
+                let a = self.pop_at(i);
                 if let Some(cp) = a.to_u32() {
                     if let Some(c) = char::from_u32(cp) {
                         let _ = write!(stdout, "{}", c);
@@ -240,31 +323,32 @@ impl Vm {
             }
             Op::GetNum => {
                 let v = read_num_input(stdin).unwrap_or_else(|| BigInt::from(-1));
-                self.push(v);
+                self.push_at(i, v);
             }
             Op::GetChr => {
                 let v = match read_utf8_char(stdin) {
                     Ok(Some(c)) => BigInt::from(c as u32),
                     _ => BigInt::from(-1),
                 };
-                self.push(v);
+                self.push_at(i, v);
             }
             Op::GridGet => {
-                let y = self.pop();
-                let x = self.pop();
+                let y = self.pop_at(i);
+                let x = self.pop_at(i);
                 let (xi, yi) = match (x.to_i64(), y.to_i64()) {
                     (Some(xi), Some(yi)) => (xi, yi),
                     _ => {
-                        self.push(BigInt::from(SPACE));
+                        self.push_at(i, BigInt::from(SPACE));
                         return;
                     }
                 };
-                self.push(self.grid.get(xi, yi));
+                let v = self.grid.get(xi, yi);
+                self.push_at(i, v);
             }
             Op::GridPut => {
-                let y = self.pop();
-                let x = self.pop();
-                let v = self.pop();
+                let y = self.pop_at(i);
+                let x = self.pop_at(i);
+                let v = self.pop_at(i);
                 if let (Some(xi), Some(yi)) = (x.to_i64(), y.to_i64()) {
                     self.grid.put(xi, yi, v);
                 }
@@ -396,14 +480,12 @@ mod tests {
 
     #[test]
     fn put_num_trailing_space() {
-        let (_, out, _) = run("34+.@");
-        assert_eq!(out, "7 ");
+        assert_eq!(run("34+.@").1, "7 ");
     }
 
     #[test]
     fn sub_argument_order() {
-        let (_, out, _) = run("34-.@");
-        assert_eq!(out, "-1 ");
+        assert_eq!(run("34-.@").1, "-1 ");
     }
 
     #[test]
@@ -558,5 +640,110 @@ mod tests {
             },
         );
         assert_eq!(o1, o2);
+    }
+
+    // ---------- v0.4 multi-IP tests ----------
+
+    #[test]
+    fn split_spawns_opposite_direction_ip() {
+        // Column 0: `t.@`. IP starts at (0,0) east.
+        // Tick 1: `t` at (0,0) spawns new IP at (-1,0) going west. Original IP
+        //   advances to (1,0).
+        // Tick 2: IP#0 at (1,0) is `.` — prints underflow 0 ("0 "). IP#1 at
+        //   (-1,0) sees space → NOP, advances to (-2,0).
+        // Tick 3: IP#0 at (2,0) is `@` — halts, removed. IP#1 keeps drifting
+        //   west across spaces forever. Cap it.
+        let mut stdin: &[u8] = b"";
+        let mut stdout = Vec::new();
+        let mut stderr = Vec::new();
+        let code = run_source(
+            "t.@",
+            RunOptions {
+                seed: Some(0),
+                max_steps: Some(50),
+                stdin: &mut stdin,
+                stdout: &mut stdout,
+                stderr: &mut stderr,
+            },
+        );
+        assert_eq!(code, ExitCode::MaxSteps);
+        // IP#0 printed one "0 " on tick 2 before halting on tick 3.
+        assert_eq!(String::from_utf8(stdout).unwrap(), "0 ");
+    }
+
+    #[test]
+    fn split_in_strmode_pushes_codepoint() {
+        // Inside string mode `t` is codepoint 116, not SPLIT.
+        assert_eq!(run("\"t\".@").1, "116 ");
+    }
+
+    #[test]
+    fn split_twice_halts_cleanly_when_both_ips_reach_halt() {
+        // Row 0: "@.t" — IP at (0,0) east. @: halts on tick 1, IP removed.
+        //   Program ends without ever visiting `t`. Output: nothing.
+        assert_eq!(run("@.t").1, "");
+    }
+
+    #[test]
+    fn split_both_ips_write_stdout_in_birth_order() {
+        //  Row 0: "1t2.@"
+        //  Row 1:   "  .@"
+        //  Tick 1: IP#0 at (0,0)=`1` pushes 1. Advance to (1,0).
+        //  Tick 2: IP#0 at (1,0)=`t` spawns IP#1 at (0,0) going west with
+        //    empty stack. IP#0 advances to (2,0).
+        //  Tick 3: IP#0 at (2,0)=`2` pushes 2. Stack [1, 2]. Advance to (3,0).
+        //          IP#1 at (0,0)=`1` pushes 1 to its own stack. Advance to
+        //    (-1,0).
+        //  Tick 4: IP#0 at (3,0)=`.` prints "2 ". IP#1 at (-1,0)=space → NOP.
+        //  Tick 5: IP#0 at (4,0)=`@` halts. IP#1 at (-2,0)=space.
+        //  After tick 5: ips = [IP#1]. IP#1 drifts west over spaces forever.
+        //
+        // Cap it; only IP#0 should have produced output.
+        let mut stdin: &[u8] = b"";
+        let mut stdout = Vec::new();
+        let mut stderr = Vec::new();
+        let code = run_source(
+            "1t2.@",
+            RunOptions {
+                seed: Some(0),
+                max_steps: Some(40),
+                stdin: &mut stdin,
+                stdout: &mut stdout,
+                stderr: &mut stderr,
+            },
+        );
+        assert_eq!(code, ExitCode::MaxSteps);
+        assert_eq!(String::from_utf8(stdout).unwrap(), "2 ");
+    }
+
+    #[test]
+    fn split_per_ip_stack_independence() {
+        // Source: "t5.@@"
+        // Tick 1: IP#0 at (0,0)=`t` spawns IP#1 at (-1,0) going west. IP#0
+        //   advances to (1,0).
+        // Tick 2: IP#0 at (1,0)=`5` pushes 5. IP#1 at (-1,0)=space → NOP.
+        //   IP#1 advances to (-2,0).
+        // Tick 3: IP#0 at (2,0)=`.` pops 5, prints "5 ". IP#1 at (-2,0)=space.
+        // Tick 4: IP#0 at (3,0)=`@` halts.
+        //
+        // The new IP's stack starts empty and never affects IP#0 — we
+        // confirm the print is 5, not 0 (which would mean the fresh IP
+        // had somehow interfered).
+        let mut stdin: &[u8] = b"";
+        let mut stdout = Vec::new();
+        let mut stderr = Vec::new();
+        let code = run_source(
+            "t5.@@",
+            RunOptions {
+                seed: Some(0),
+                max_steps: Some(40),
+                stdin: &mut stdin,
+                stdout: &mut stdout,
+                stderr: &mut stderr,
+            },
+        );
+        // Cap fires because IP#1 is still wandering.
+        assert_eq!(code, ExitCode::MaxSteps);
+        assert_eq!(String::from_utf8(stdout).unwrap(), "5 ");
     }
 }

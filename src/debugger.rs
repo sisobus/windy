@@ -46,9 +46,10 @@ fn dir_name(dx: i64, dy: i64) -> &'static str {
 fn render_grid(out: &mut dyn Write, vm: &Vm) -> io::Result<()> {
     let half_w = VIEWPORT_COLS / 2;
     let half_h = VIEWPORT_ROWS / 2;
-    let x0 = vm.ip.x - half_w;
-    let y0 = vm.ip.y - half_h;
-    writeln!(out, "┌─ grid {:>52}", format!("({}, {})  ", vm.ip.x, vm.ip.y))?;
+    let (cx, cy) = vm.first_ip().map(|c| (c.ip.x, c.ip.y)).unwrap_or((0, 0));
+    let x0 = cx - half_w;
+    let y0 = cy - half_h;
+    writeln!(out, "┌─ grid {:>52}", format!("({}, {})  ", cx, cy))?;
     for y in y0..y0 + VIEWPORT_ROWS {
         write!(out, "│ ")?;
         for x in x0..x0 + VIEWPORT_COLS {
@@ -58,7 +59,10 @@ fn render_grid(out: &mut dyn Write, vm: &Vm) -> io::Result<()> {
                 .and_then(char::from_u32)
                 .filter(|c| !c.is_control() && *c != '\t' && *c != '\n')
                 .unwrap_or(' ');
-            if x == vm.ip.x && y == vm.ip.y {
+            // Highlight every live IP that sits on this cell. Birth-order IPs
+            // may collide; we only flag "an IP is here".
+            let ip_here = vm.ips.iter().any(|c| c.ip.x == x && c.ip.y == y);
+            if ip_here {
                 write!(out, "{REVERSE_ON}{ch}{REVERSE_OFF}")?;
             } else {
                 write!(out, "{ch}")?;
@@ -71,38 +75,49 @@ fn render_grid(out: &mut dyn Write, vm: &Vm) -> io::Result<()> {
 }
 
 fn render_status(out: &mut dyn Write, vm: &Vm) -> io::Result<()> {
-    let cell = vm.grid.get(vm.ip.x, vm.ip.y);
-    let cp = cell.to_u32().unwrap_or(0);
-    let ch = char::from_u32(cp).unwrap_or('?');
-    let (op, operand) = decode_cell(&cell);
     writeln!(out, "┌─ state ─────")?;
     writeln!(out, "│ step:   {}", vm.steps)?;
-    writeln!(out, "│ ip:     ({}, {})", vm.ip.x, vm.ip.y)?;
-    writeln!(out, "│ dir:    {}", dir_name(vm.ip.dx, vm.ip.dy))?;
-    writeln!(out, "│ strmod: {}", if vm.strmode { "on" } else { "off" })?;
+    writeln!(out, "│ ips:    {}", vm.ips.len())?;
     writeln!(out, "│ halted: {}", if vm.halted { "yes" } else { "no" })?;
-    writeln!(out, "│ cell:   {:?} (U+{:04X})", ch, cp)?;
-    let op_line = if op == Op::PushDigit {
-        format!("│ op:     {} (value={})", op.name(), operand)
-    } else {
-        format!("│ op:     {}", op.name())
-    };
-    writeln!(out, "{op_line}")?;
+    match vm.first_ip() {
+        None => {
+            writeln!(out, "│ (no live IPs)")?;
+        }
+        Some(ctx) => {
+            let cell = vm.grid.get(ctx.ip.x, ctx.ip.y);
+            let cp = cell.to_u32().unwrap_or(0);
+            let ch = char::from_u32(cp).unwrap_or('?');
+            let (op, operand) = decode_cell(&cell);
+            writeln!(out, "│ ip:     ({}, {})", ctx.ip.x, ctx.ip.y)?;
+            writeln!(out, "│ dir:    {}", dir_name(ctx.ip.dx, ctx.ip.dy))?;
+            writeln!(out, "│ strmod: {}", if ctx.strmode { "on" } else { "off" })?;
+            writeln!(out, "│ cell:   {:?} (U+{:04X})", ch, cp)?;
+            let op_line = if op == Op::PushDigit {
+                format!("│ op:     {} (value={})", op.name(), operand)
+            } else {
+                format!("│ op:     {}", op.name())
+            };
+            writeln!(out, "{op_line}")?;
+        }
+    }
     writeln!(out, "└─────────────")?;
     Ok(())
 }
 
 fn render_stack(out: &mut dyn Write, vm: &Vm) -> io::Result<()> {
     writeln!(out, "┌─ stack (top first) ─")?;
-    if vm.stack.is_empty() {
-        writeln!(out, "│ (empty)")?;
-    } else {
-        let show = 20usize.min(vm.stack.len());
-        for v in vm.stack.iter().rev().take(show) {
-            writeln!(out, "│ {v}")?;
-        }
-        if vm.stack.len() > show {
-            writeln!(out, "│ ... (+{} below)", vm.stack.len() - show)?;
+    let stack_opt = vm.first_ip().map(|c| &c.stack);
+    match stack_opt {
+        None => writeln!(out, "│ (no IP)")?,
+        Some(stack) if stack.is_empty() => writeln!(out, "│ (empty)")?,
+        Some(stack) => {
+            let show = 20usize.min(stack.len());
+            for v in stack.iter().rev().take(show) {
+                writeln!(out, "│ {v}")?;
+            }
+            if stack.len() > show {
+                writeln!(out, "│ ... (+{} below)", stack.len() - show)?;
+            }
         }
     }
     writeln!(out, "└─────────────────────")?;

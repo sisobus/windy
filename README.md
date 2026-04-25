@@ -92,11 +92,18 @@ The conformance JSON is language-neutral; future implementations
 
 ## Status
 
-**v0.1** shipped an interpreter, interactive debugger, and WebAssembly
-output-baking stopgap in Python. **v0.2** retires the Python codebase and
-reimplements the VM in Rust — the single crate in this repo drives both the
-native CLI now and the browser playground in v0.3. See
-[SPEC.md §10](SPEC.md) for the forward roadmap.
+**v0.4** — 35 opcodes including `t` (SPLIT) for concurrent IPs. The
+same Rust crate drives the native CLI, the interactive terminal
+stepper (`windy debug`), and the static browser playground under
+`web/`. See [SPEC.md §10](SPEC.md) for the forward roadmap.
+
+Version history:
+- **v0.1** — Python scaffold: interpreter, rich-based debugger,
+  WASI output-baking stopgap. Retired.
+- **v0.2** — Rust rewrite. Single crate at repo root powers the CLI.
+- **v0.3** — Browser playground. `windy` compiled to wasm32 via
+  wasm-bindgen; static HTML page runs `.wnd` source serverlessly.
+- **v0.4** — Concurrent IPs via `t` (SPEC §3.5 / §3.6 / §4).
 
 ## Author
 

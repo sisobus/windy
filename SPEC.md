@@ -1,4 +1,4 @@
-# Windy Language Specification — v0.1
+# Windy Language Specification — v0.4
 
 This document is the single source of truth for the Windy programming language.
 Implementations (the reference Python interpreter, the WASM backend, any future
@@ -34,7 +34,7 @@ reference to the Pokémon's type or abilities.
 2. **Visual by construction.** Program text should read like a flow diagram.
    Directional glyphs are primary; ASCII aliases exist only for the four
    cardinal directions, and only as a convenience.
-3. **Small core, emergent complexity.** The language has exactly 34 opcodes.
+3. **Small core, emergent complexity.** The language has exactly 35 opcodes.
    There are no functions, types, modules, or standard library. All structure
    is emergent from grid layout.
 4. **No bounded datatypes.** The grid, the stack, and integer values are all
@@ -77,35 +77,66 @@ reference to the Pokémon's type or abilities.
   to `false`.
 - When `false`, cells are decoded and executed as opcodes normally.
 
-### 3.5 Main Loop
+### 3.5 Concurrent IPs
+
+A Windy program is driven by an **ordered list of IPs**. Each IP owns
+its own `(position, direction, stack, strmode)` tuple; the grid is
+shared. Initially the list contains a single IP — position `(0, 0)`,
+direction east, empty stack, string mode off.
+
+New IPs are spawned by `t` (SPLIT, §4). When `t` executes on an IP at
+position `(x, y)` with direction `(dx, dy)`, a **new IP** is appended
+to the end of the list at position `(x - dx, y - dy)` with direction
+`(-dx, -dy)`, an empty stack, and string mode off. The executing IP is
+otherwise unchanged — it advances normally. The `(x - dx, y - dy)`
+offset (one cell "behind" the executing IP along its original heading)
+guarantees that the new IP does NOT re-execute the `t` cell on its
+next tick, which would otherwise cause an infinite split cascade.
+
+### 3.6 Main Loop
 
 ```
-IP ← (0, 0); dir ← (1, 0); stack ← []; strmode ← false; halted ← false
-while not halted:
-    cell ← G[IP]                         # defaults to 0x20 if missing
-    if strmode and cell ≠ 0x22 ('"'):    # inside a string literal
-        push cell
-    else:
-        op ← decode(cell)
-        execute(op)                      # may set halted or change dir
-    IP ← IP + dir
+IPs ← [ IP(position=(0,0), dir=(1,0), stack=[], strmode=false) ]
+while IPs is non-empty:
+    for each ip in IPs:                 # visit in birth order
+        cell ← G[ip.position]           # defaults to 0x20
+        if ip.strmode and cell ≠ 0x22:  # inside a string literal
+            ip.push(cell)
+        else:
+            op ← decode(cell)
+            execute(op)                 # may change dir, spawn IPs, set @-halt
+        if ip has been @-halted: mark for removal
+        else: ip.position ← ip.position + ip.dir
+    remove @-halted IPs from the list
 ```
 
-Execution terminates iff `@` (HALT) executes or the runtime exceeds the
-`--max-steps` budget (§9).
+`@` (HALT, §4) removes **only the IP that executed it**. When the last
+IP is removed, the program terminates cleanly. The step counter used
+by `--max-steps` (§9) advances by **1 per tick**, not per IP — one
+"tick" is one pass over every live IP.
+
+Execution terminates iff the IP list becomes empty or the runtime
+exceeds the `--max-steps` budget (§9).
+
+The order in which IPs are visited within a tick is **birth order**
+(oldest first). A brand-new IP created this tick does NOT execute on
+the same tick it was born — it joins the list and first runs on the
+following tick. This keeps each tick deterministic and side-effect
+stable regardless of implementation details like iterator invalidation.
 
 ---
 
 ## 4. Opcode Reference
 
-All 34 opcodes are listed below. The **Glyph** column lists the primary
+All 35 opcodes are listed below. The **Glyph** column lists the primary
 Unicode character first, with ASCII aliases in parentheses when defined.
 
 | Category     | Glyph         | Name        | Semantics                                                 |
 |--------------|---------------|-------------|-----------------------------------------------------------|
 | Flow         | (space) · (U+00B7) | NOP    | Do nothing.                                               |
-| Flow         | `@`           | HALT        | Stop execution.                                           |
+| Flow         | `@`           | HALT        | Remove the executing IP from the live list (§3.5). When the list empties, the program terminates. |
 | Flow         | `#`           | TRAMPOLINE  | Advance IP an extra step (skip the next cell).            |
+| Flow         | `t`           | SPLIT       | Spawn a new IP at `(x - dx, y - dy)` going `(-dx, -dy)` with an empty stack and strmode off; the executing IP is unchanged. See §3.5. |
 | Wind         | `→` (`>`)     | MOVE\_E     | `dir ← (+1,  0)`                                          |
 | Wind         | `↗`           | MOVE\_NE    | `dir ← (+1, -1)`                                          |
 | Wind         | `↑` (`^`)     | MOVE\_N     | `dir ← ( 0, -1)`                                          |
@@ -212,6 +243,9 @@ Windy is Turing-complete. A sketch:
 | Negative `p`/`g` coordinates       | Perfectly legal; the grid is bi-infinite. |
 | `p` writing a non-printable codepoint | Perfectly legal; cell stores the integer. |
 | IP direction set by `~` | Uniformly drawn from the 8 wind directions. |
+| `t` executed in string mode | No split — `t` is pushed as codepoint 116 like any other character inside a string literal. |
+| `t` spawning an IP onto a cell the same IP occupies | Perfectly legal; both IPs may visit each other's paths on subsequent ticks. |
+| Interleaved stdout from multiple IPs | Bytes are written in the order IPs execute `,` / `.` within each tick (birth order, §3.5). No implicit buffering. |
 
 ---
 
@@ -275,20 +309,22 @@ programs remain forward-compatible when they ship:
   replaces the "WAT AOT compiler" plan that v0.1's `wasm.py` stopgap
   gestured at — per-program AOT is not needed once the interpreter
   itself ships as WebAssembly.
-- **Threads / concurrent IPs** (Befunge-98 `t`) — v0.4+.
-- **Fingerprints / language extensions** — v0.4+.
-- **Tracing JIT for hot loops** — v0.4+.
+- **Fingerprints / language extensions** — v0.5+.
+- **Tracing JIT for hot loops** — v0.5+.
 - **Standard-library overlays** (pre-written grid regions loaded by name) —
-  v0.5+.
+  v0.6+.
 
-Implementations MAY define experimental opcodes outside the 34 listed here,
+Implementations MAY define experimental opcodes outside the 35 listed here,
 but MUST gate them behind an explicit opt-in flag to preserve portability.
 
 ---
 
 ## 11. Versioning & Conformance
 
-- This document describes **Windy v0.1**.
+- This document describes **Windy v0.4**. The language grammar is
+  backwards compatible with v0.1 modulo one change: `t` used to decode
+  as Unknown (NOP + warning) and now is the SPLIT opcode. Programs
+  that relied on `t` being a warning will no longer see the warning.
 - A future breaking change bumps the major version (e.g., v1.0).
 - Additions that preserve existing program behavior bump the minor version
   (e.g., v0.2).

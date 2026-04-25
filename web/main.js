@@ -127,11 +127,17 @@ function renderGridView() {
   const x0 = ipX - Math.floor(VIEWPORT_W / 2);
   const y0 = ipY - Math.floor(VIEWPORT_H / 2);
 
-  // Uint32Array, row-major.
   const cells = session.grid_slice(x0, y0, VIEWPORT_W, VIEWPORT_H);
 
-  const centerX = Math.floor(VIEWPORT_W / 2);
-  const centerY = Math.floor(VIEWPORT_H / 2);
+  // Collect every live IP's (x, y) so we can highlight multi-IP programs.
+  const positions = session.ip_positions();
+  const ipCells = new Set();
+  for (let i = 0; i < positions.length; i += 4) {
+    const x = Number(positions[i]);
+    const y = Number(positions[i + 1]);
+    ipCells.add(`${x},${y}`);
+  }
+
   const lines = [];
   for (let dy = 0; dy < VIEWPORT_H; dy++) {
     const row = [];
@@ -140,7 +146,7 @@ function renderGridView() {
       let ch = String.fromCodePoint(cp);
       if (cp < 0x20 || cp === 0x7f) ch = ' ';
       const safe = escHtml(ch);
-      if (dx === centerX && dy === centerY) {
+      if (ipCells.has(`${x0 + dx},${y0 + dy}`)) {
         row.push(`<span class="ip-cell">${safe}</span>`);
       } else {
         row.push(safe);
@@ -149,7 +155,10 @@ function renderGridView() {
     lines.push(row.join(''));
   }
   gridView.innerHTML = lines.join('\n');
-  gridLabel.textContent = `(${ipX}, ${ipY})`;
+  const ipCount = Number(session.ip_count);
+  gridLabel.textContent = ipCount > 1
+    ? `(${ipX}, ${ipY}) · ${ipCount} IPs`
+    : `(${ipX}, ${ipY})`;
 }
 
 function renderState() {
@@ -159,6 +168,7 @@ function renderState() {
   const displayCh = (cp >= 0x20 && cp !== 0x7f) ? ch : ' ';
   const rows = [
     ['step', session.steps.toString()],
+    ['ips', Number(session.ip_count).toString()],
     ['ip', `(${session.ip_x}, ${session.ip_y})`],
     ['dir', DIR_NAMES[dirKey] ?? '?'],
     ['strmod', session.strmode ? 'on' : 'off'],

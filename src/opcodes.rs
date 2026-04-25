@@ -3,13 +3,14 @@
 use num_bigint::BigInt;
 use num_traits::ToPrimitive;
 
-/// All 34 Windy opcodes plus the internal `Unknown` fallback for unrecognized glyphs.
+/// All 35 Windy opcodes plus the internal `Unknown` fallback for unrecognized glyphs.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Op {
     // Flow
     Nop,
     Halt,
     Trampoline,
+    Split,
     // Winds
     MoveE, MoveNe, MoveN, MoveNw, MoveW, MoveSw, MoveS, MoveSe,
     Turbulence,
@@ -36,6 +37,7 @@ impl Op {
             Op::Nop => "NOP",
             Op::Halt => "HALT",
             Op::Trampoline => "TRAMPOLINE",
+            Op::Split => "SPLIT",
             Op::MoveE => "MOVE_E",
             Op::MoveNe => "MOVE_NE",
             Op::MoveN => "MOVE_N",
@@ -78,6 +80,7 @@ fn char_to_op(c: char) -> Option<Op> {
         ' ' | '·' => Op::Nop,
         '@' => Op::Halt,
         '#' => Op::Trampoline,
+        't' => Op::Split,
         '→' | '>' => Op::MoveE,
         '↗' => Op::MoveNe,
         '↑' | '^' => Op::MoveN,
