@@ -12,11 +12,17 @@ binary are both `windy`. References to "the crate" below always mean
 
 ### Added
 
-- **`examples/anthem.wnd`** — a multi-row wind-tunnel ASCII art
-  program that prints "code flows like wind". Demonstrates how
-  `≫` (GUST) plus the speed-2 movement rule lets an IP descend
-  through walls of `↘`/`↗` arrows as intermediate cells, landing
-  only on the print row in between.
+- **`examples/anthem.wnd`** — a 46-row SE diagonal wind cascade
+  that prints "code flows like wind". The IP enters at speed 1,
+  hits `≫` to switch to speed 2, then `↘` flips it to south-east
+  and it cascades down the diagonal, landing on a `,` print cell
+  every (+2, +2) step. The intermediate cells along the cascade
+  carry `↗` (NE) crosswind glyphs — invisible to the IP at speed
+  2, but lethal at speed 1: drop the `≫` and the very first `↗`
+  flings the IP up-right into the empty far field, where it
+  drifts to a `--max-steps` abort. So the message reaches stdout
+  if and only if the wind is fast enough. Both the on-disk file
+  and the playground EXAMPLES string carry this layout.
 
 ### Changed
 

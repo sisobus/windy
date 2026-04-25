@@ -1,63 +1,110 @@
 "dniw ekil swolf edoc"v
-                      →,,,,,↓
-                      →,@↘↘↘,
-                      ,↗↘↗↘↗,
-                      ,↘↗↘↗↘,
-                      ,↗↘↗↘↗,
-                      ,↘↗↘↗↘,
-                      ↑,,,,,←
+                      ≫
+                      ↗
+                      ↘
+                       ↗
+                        ,
+                         ↗
+                          ,
+                           ↗
+                            ,
+                             ↗
+                              ,
+                               ↗
+                                ,
+                                 ↗
+                                  ,
+                                   ↗
+                                    ,
+                                     ↗
+                                      ,
+                                       ↗
+                                        ,
+                                         ↗
+                                          ,
+                                           ↗
+                                            ,
+                                             ↗
+                                              ,
+                                               ↗
+                                                ,
+                                                 ↗
+                                                  ,
+                                                   ↗
+                                                    ,
+                                                     ↗
+                                                      ,
+                                                       ↗
+                                                        ,
+                                                         ↗
+                                                          ,
+                                                           ↗
+                                                            ,
+                                                             ↗
+                                                              ,
+                                                               ↗
+                                                                @
 
   sisobus
   ----------------------------------------------------------------------
   Output:  code flows like wind
 
-  How it spirals
-  --------------
-  The strmode segment "dniw ekil swolf edoc" pushes the message in
-  reverse, so 'c' lands on top of the stack. Then `v` redirects the
-  IP south into the spiral entry at column 22.
+  How it flows
+  ------------
+  This is a wind demo, not a labyrinth. The IP doesn't walk the
+  grid — it gusts.
 
-  The spiral itself is a 7×7 box laid out clockwise inward. Corners
-  are turn redirects (→, ↓, ←, ↑); the cells in between are the
-  twenty `,` print operations that drain the stack one character per
-  cell as the IP walks the perimeter:
+  Row 0 builds the message in reverse-byte order so 'c' lands on
+  top of the stack, then `v` redirects the IP south. On the next
+  tick, `≫` raises its speed to 2.
 
-      → , , , , , ↓     ← top edge: prints "code "
-      → , @ ↘ ↘ ↘ ,     ← inward turn + halt + interior decoration + right edge: 'f'
-      , ↗ ↘ ↗ ↘ ↗ ,     ← left edge: ' ' (space)         right edge: 'l'
-      , ↘ ↗ ↘ ↗ ↘ ,     ← left edge: 'n'                 right edge: 'o'
-      , ↗ ↘ ↗ ↘ ↗ ,     ← left edge: 'i'                 right edge: 'w'
-      , ↘ ↗ ↘ ↗ ↘ ,     ← left edge: 'w'                 right edge: 's'
-      ↑ , , , , , ←     ← bottom edge (read west-to-east): " ekil"  →  the IP traverses east-to-west, so prints come out as " " "e" "k" "i" "l"
+  From there on, the IP travels at speed 2. Each tick it advances
+  TWO cells in its current direction; only the destination cell
+  decodes (SPEC §3.7). The first speed-2 step takes it from
+  (22, 1) past the intermediate cell at (22, 2) and lands on
+  (22, 3), where `↘` flips the direction to south-east. After
+  that, every tick advances (+2, +2) — and the message has been
+  laid out so that the IP lands on a fresh `,` print cell every
+  single time:
 
-  The IP visits every perimeter cell exactly once, so the twenty
-  `,` cells along the perimeter exactly match the twenty
-  characters in the message. After the last left-edge print at
-  (22,3), the IP arrives at (22,2) — a `→` that turns it inward.
-  It steps into the inner ring start at (23,2), prints the final
-  'd', and the next cell (24,2) is `@` — clean halt.
+    tick   landing  speed   action
+    ----   -------- -----   ----------------------
+     n     (22, 1)    1     ≫: speed → 2
+     n+1   (22, 3)    2     ↘: dir → SE
+     n+2   (24, 5)    2     ,: print 'c'
+     n+3   (26, 7)    2     ,: print 'o'
+     n+4   (28, 9)    2     ,: print 'd'
+            ...
+     n+21  (62, 43)   2     ,: print 'd' (last)
+     n+22  (64, 45)   2     @: halt
 
-  The interior of the spiral (rows 3–6, columns 23–27) is filled
-  with alternating ↗ ↘ wind arrows. The IP never decodes them: at
-  no point along its perimeter walk does the path step into the
-  interior except at (23,2) and (24,2), and both of those are
-  explicit print + halt cells. Everything else is purely visual
-  texture — the decorative crosswind inside the eye of the storm.
+  The cells the IP flies over — every other cell along the
+  cascade — are `↗` (NE) glyphs. They look like crosswinds
+  blowing back up against the SE flow. The IP never decodes
+  them, so they're aesthetically free: pure visual texture for
+  the human reader.
+
+  But they aren't decoration only. They are the program's only
+  defense against a slower IP. Without `≫`, a speed-1 traversal
+  steps onto the very first `↗` and gets flung up-right into the
+  empty far field of the grid, where it drifts forever. So the
+  message reaches stdout if and only if the wind is strong
+  enough to skip the `↗` rip currents.
+
+  In other words: this isn't 20 print operations dressed up in
+  diagonal art. It's a layout that's structurally untraversable
+  at the wrong speed, and exactly traversable at speed 2 — and
+  the 20-cell print pattern that emerges out of that traversal
+  happens to spell "code flows like wind".
 
   Things to notice
   ----------------
-  - The strmode-reversed-message technique is general: write your
-    forward-readable text in reverse between quotes, drain top-down
-    with `,`, and the stack does the un-reversal for you.
+  - The whole program lives on one diagonal. Trace the source
+    top-down, left-to-right, and each row's single character
+    drifts one column further east. That's the IP's actual
+    trajectory drawn into the file.
 
-  - Corner cells double as direction-set ops; non-corner perimeter
-    cells double as print ops. The IP's direction is unchanged by
-    `,`, so once the spiral sets you going east at the top, you
-    keep going east through five `,`s, then the corner `↓` flips
-    you south, and so on. The geometry of the spiral and the
-    arithmetic of the message length are tuned to each other:
-    drop a character and the spiral stops landing on its `@`.
-
-  - The whole thing reads as a flow chart: trace the IP with your
-    eye, watch one character peel off the stack per perimeter cell,
-    and the message assembles in stdout.
+  - Step through it under `windy debug examples/anthem.wnd` and
+    watch the position counter walk (+2, +2) per tick across
+    rows 3 → 5 → 7 → ... → 45. The state panel's `speed` row
+    will read 2 the entire way.
