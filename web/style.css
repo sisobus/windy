@@ -311,6 +311,104 @@ code {
 
 .hint { color: var(--muted); font-weight: normal; font-size: 0.8em; margin-left: 0.5rem; }
 
+/* ---------- Opcode reference ---------- */
+
+.opcodes {
+  margin-top: 1.5rem;
+}
+
+.opcodes details {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel-bg);
+  padding: 0.5rem 0.9rem;
+}
+
+.opcodes summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 0.3rem 0;
+  user-select: none;
+}
+
+.opcodes summary:focus { outline: none; }
+.opcodes details[open] summary {
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.4rem;
+}
+
+.opcode-blurb {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin: 0.4rem 0;
+  line-height: 1.5;
+}
+
+.opcode-blurb a { color: var(--accent); }
+
+.opcode-table-wrap { overflow-x: auto; }
+
+.opcode-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+}
+
+.opcode-table th,
+.opcode-table td {
+  padding: 0.32rem 0.55rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.opcode-table thead th {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  background: var(--pre-bg);
+  position: sticky;
+  top: 0;
+}
+
+.opcode-table tbody tr:hover { background: var(--pre-bg); }
+
+.opcode-table td:first-child {
+  width: 4.5em;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.opcode-table td:nth-child(2) {
+  width: 5.5em;
+  white-space: nowrap;
+}
+
+.opcode-table td:nth-child(2) code {
+  font-size: 0.95rem;
+  padding: 0.06em 0.32em;
+  background: var(--pre-bg);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  margin-right: 0.15em;
+}
+
+.opcode-table td:nth-child(3) {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  width: 7.5em;
+}
+
+.opcode-table td:nth-child(4) code {
+  font-size: 0.85em;
+  background: transparent;
+  padding: 0;
+}
+
 /* ---------- Mobile ---------- */
 /*
  * On narrow screens the editor and the debug panels stack vertically.

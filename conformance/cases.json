@@ -135,6 +135,16 @@
       "expected_stdout": "0 1 1 2 3 5 8 13 21 34 "
     },
     {
+      "name": "stars_file",
+      "source_file": "examples/stars.wnd",
+      "expected_stdout": "*\n**\n***\n****\n*****\n"
+    },
+    {
+      "name": "factorial_file",
+      "source_file": "examples/factorial.wnd",
+      "expected_stdout": "1 2 6 24 120 720 5040 40320 362880 3628800 "
+    },
+    {
       "name": "split_in_strmode_pushes_116",
       "source": "\"t\".@",
       "expected_stdout": "116 "

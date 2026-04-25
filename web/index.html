@@ -21,6 +21,8 @@
         <option value="hello">hello.wnd</option>
         <option value="hello_winds">hello_winds.wnd</option>
         <option value="fib">fib.wnd</option>
+        <option value="stars">stars.wnd</option>
+        <option value="factorial">factorial.wnd</option>
         <option value="blank">(empty)</option>
       </select>
     </label>
@@ -79,6 +81,72 @@
       </div>
     </section>
   </main>
+
+  <section class="opcodes">
+    <details id="opcode-reference">
+      <summary>Opcode reference <span class="hint">(33 — click to expand)</span></summary>
+      <p class="opcode-blurb">
+        Every cell is one Unicode codepoint. Outside string mode, the IP
+        decodes its current cell as one of these opcodes; inside string
+        mode (toggled by <code>"</code>) every cell except <code>"</code>
+        pushes its codepoint to the stack instead.
+      </p>
+      <div class="opcode-table-wrap">
+        <table class="opcode-table">
+          <thead>
+            <tr><th>Cat</th><th>Glyph</th><th>Name</th><th>Effect</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Flow</td><td><code> </code> <code>·</code></td><td>NOP</td><td>Do nothing.</td></tr>
+            <tr><td>Flow</td><td><code>@</code></td><td>HALT</td><td>Remove the executing IP from the live list. When empty, the program ends.</td></tr>
+            <tr><td>Flow</td><td><code>#</code></td><td>TRAMPOLINE</td><td>Advance an extra step (skip the next cell).</td></tr>
+            <tr><td>Flow</td><td><code>t</code></td><td>SPLIT</td><td>Spawn a new IP at <code>(x − dx, y − dy)</code> going <code>(−dx, −dy)</code>; empty stack, strmode off.</td></tr>
+
+            <tr><td>Wind</td><td><code>→</code> <code>&gt;</code></td><td>MOVE_E</td><td><code>dir ← (+1, 0)</code></td></tr>
+            <tr><td>Wind</td><td><code>↗</code></td><td>MOVE_NE</td><td><code>dir ← (+1, −1)</code></td></tr>
+            <tr><td>Wind</td><td><code>↑</code> <code>^</code></td><td>MOVE_N</td><td><code>dir ← (0, −1)</code></td></tr>
+            <tr><td>Wind</td><td><code>↖</code></td><td>MOVE_NW</td><td><code>dir ← (−1, −1)</code></td></tr>
+            <tr><td>Wind</td><td><code>←</code> <code>&lt;</code></td><td>MOVE_W</td><td><code>dir ← (−1, 0)</code></td></tr>
+            <tr><td>Wind</td><td><code>↙</code></td><td>MOVE_SW</td><td><code>dir ← (−1, +1)</code></td></tr>
+            <tr><td>Wind</td><td><code>↓</code> <code>v</code></td><td>MOVE_S</td><td><code>dir ← (0, +1)</code></td></tr>
+            <tr><td>Wind</td><td><code>↘</code></td><td>MOVE_SE</td><td><code>dir ← (+1, +1)</code></td></tr>
+            <tr><td>Wind</td><td><code>~</code></td><td>TURBULENCE</td><td>Pick a random direction from the eight winds. Use <code>--seed</code> for reproducibility.</td></tr>
+
+            <tr><td>Lit</td><td><code>0</code>…<code>9</code></td><td>PUSH_DIGIT</td><td>Push the digit's integer value (0–9).</td></tr>
+            <tr><td>Lit</td><td><code>"</code></td><td>STR_MODE</td><td>Toggle string mode.</td></tr>
+
+            <tr><td>Arith</td><td><code>+</code></td><td>ADD</td><td><code>b ← pop; a ← pop; push a + b</code></td></tr>
+            <tr><td>Arith</td><td><code>−</code></td><td>SUB</td><td><code>push a − b</code></td></tr>
+            <tr><td>Arith</td><td><code>*</code></td><td>MUL</td><td><code>push a × b</code></td></tr>
+            <tr><td>Arith</td><td><code>/</code></td><td>DIV</td><td>Floor division. <code>b == 0 ⇒ push 0</code>.</td></tr>
+            <tr><td>Arith</td><td><code>%</code></td><td>MOD</td><td>Floor modulo. <code>b == 0 ⇒ push 0</code>.</td></tr>
+            <tr><td>Arith</td><td><code>!</code></td><td>NOT</td><td><code>push 1 if a == 0 else 0</code></td></tr>
+            <tr><td>Arith</td><td><code>`</code></td><td>GT</td><td><code>push 1 if a &gt; b else 0</code></td></tr>
+
+            <tr><td>Stack</td><td><code>:</code></td><td>DUP</td><td>Duplicate the top.</td></tr>
+            <tr><td>Stack</td><td><code>$</code></td><td>DROP</td><td>Discard the top.</td></tr>
+            <tr><td>Stack</td><td><code>\</code></td><td>SWAP</td><td>Swap the top two.</td></tr>
+
+            <tr><td>Branch</td><td><code>_</code></td><td>IF_H</td><td><code>a ← pop; dir ← east if a == 0 else west</code></td></tr>
+            <tr><td>Branch</td><td><code>|</code></td><td>IF_V</td><td><code>a ← pop; dir ← south if a == 0 else north</code></td></tr>
+
+            <tr><td>I/O</td><td><code>.</code></td><td>PUT_NUM</td><td>Pop, write decimal repr followed by a space.</td></tr>
+            <tr><td>I/O</td><td><code>,</code></td><td>PUT_CHR</td><td>Pop codepoint, write as a Unicode character.</td></tr>
+            <tr><td>I/O</td><td><code>&amp;</code></td><td>GET_NUM</td><td>Read one decimal integer from stdin (EOF → −1).</td></tr>
+            <tr><td>I/O</td><td><code>?</code></td><td>GET_CHR</td><td>Read one Unicode character; push codepoint (EOF → −1).</td></tr>
+
+            <tr><td>Grid</td><td><code>g</code></td><td>GRID_GET</td><td><code>y ← pop; x ← pop; push G[(x, y)]</code> (missing ⇒ 0x20).</td></tr>
+            <tr><td>Grid</td><td><code>p</code></td><td>GRID_PUT</td><td><code>y ← pop; x ← pop; v ← pop; G[(x, y)] ← v</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="opcode-blurb">
+        Stack underflow yields <code>0</code> (no trap). Pop from empty,
+        divide by zero, and unknown glyphs are all explicitly defined —
+        see <a href="https://github.com/sisobus/windy/blob/main/SPEC.md#7-semantics-of-edge-cases" target="_blank">SPEC §7</a>.
+      </p>
+    </details>
+  </section>
 
   <footer>
     <span>Interpreter shipped as WebAssembly from the Rust <code>windy</code> crate —

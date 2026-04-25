@@ -20,6 +20,61 @@ const EXAMPLES = {
    sisobus — Fibonacci via grid memory (g/p). IP never visits this row.
 `,
 
+  stars: `55+"*****"55+"****"55+"***"55+"**"55+"*"45*055+5*pv
+                                                  v                  <
+                                                  >,055+5*g1-:055+5*p|
+                                                                     @
+
+  sisobus
+  ----------------------------------------------------------------------
+  How this prints the triangle (a "2D for-loop" expressed in 1D):
+
+    1) Build the entire output on the stack first, IN REVERSE because
+       a stack is LIFO.  String-mode segments push '*' codepoints (42),
+       and \`55+\` pushes a newline (10).  After row 0's first 40 cells:
+
+         bottom -> 10, *****, 10, ****, 10, ***, 10, **, 10, *  <- top
+
+    2) Init a counter at grid (0, 50): \`45*\` pushes 4·5 = 20 (the total
+       characters to print), and \`055+5*p\` stores it.
+
+    3) The east-going loop on row 2 pops one char with \`,\`, decrements
+       the counter, stores it back, and uses \`|\` to halt when zero.
+       Top-of-stack = '*' first → output is "*\\n**\\n***\\n****\\n*****\\n".
+
+  The same idea works for any structured shape: lay the bytes out on
+  the stack in reverse, then drain them with a counter.
+`,
+
+  factorial: `1055+5*p1155+5*pv
+                                                              @
+                >155+5*g055+5*g*:155+5*p.055+5*g1+:055+5*p55+\`|
+                ^                                             <
+
+  sisobus
+  ----------------------------------------------------------------------
+  Print the first ten factorials (1! through 10!) using grid memory.
+
+  Layout:
+    n     at cell (0, 50)   — counter, starts at 1
+    fact  at cell (1, 50)   — running product, starts at 1
+
+  Each tick of row 2 (going east):
+    155+5*g   load fact
+    055+5*g   load n
+    *         fact * n  → new fact
+    :155+5*p  dup, store new fact at (1, 50)
+    .         print fact (decimal + space)
+    055+5*g   load n again
+    1+:       n + 1, dup
+    055+5*p   store new n at (0, 50)
+    55+\`      push 10, GT  → 1 if n+1 > 10 else 0
+    |         IF_V — top=1 → north (halt @), top=0 → south (loop back)
+
+  Output: "1 2 6 24 120 720 5040 40320 362880 3628800 "
+  The values quickly outgrow i64 — Windy's stack is BigInt.
+`,
+
   blank: '',
 };
 

@@ -34,7 +34,7 @@ reference to the Pokémon's type or abilities.
 2. **Visual by construction.** Program text should read like a flow diagram.
    Directional glyphs are primary; ASCII aliases exist only for the four
    cardinal directions, and only as a convenience.
-3. **Small core, emergent complexity.** The language has exactly 35 opcodes.
+3. **Small core, emergent complexity.** The language has exactly 33 opcodes.
    There are no functions, types, modules, or standard library. All structure
    is emergent from grid layout.
 4. **No bounded datatypes.** The grid, the stack, and integer values are all
@@ -128,7 +128,7 @@ stable regardless of implementation details like iterator invalidation.
 
 ## 4. Opcode Reference
 
-All 35 opcodes are listed below. The **Glyph** column lists the primary
+All 33 opcodes are listed below. The **Glyph** column lists the primary
 Unicode character first, with ASCII aliases in parentheses when defined.
 
 | Category     | Glyph         | Name        | Semantics                                                 |
@@ -314,7 +314,7 @@ programs remain forward-compatible when they ship:
 - **Standard-library overlays** (pre-written grid regions loaded by name) —
   v0.6+.
 
-Implementations MAY define experimental opcodes outside the 35 listed here,
+Implementations MAY define experimental opcodes outside the 33 listed here,
 but MUST gate them behind an explicit opt-in flag to preserve portability.
 
 ---
