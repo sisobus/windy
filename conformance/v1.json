@@ -1,5 +1,5 @@
 {
-  "comment": "Goldens for SPEC § Pre-release: v1.0 (proposal). Loaded by tests/conformance_v1.rs with v1 mode ON. Language-neutral — keep Rust-specific fields out of cases.",
+  "comment": "Goldens for SPEC §3.7 (wind speed) and §3.8 (IP collision merge). Loaded by tests/conformance_v1.rs with v1 mode ON. Language-neutral — keep Rust-specific fields out of cases.",
   "cases": [
     {
       "name": "gust_skips_intermediate_cell",

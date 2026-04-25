@@ -2,11 +2,11 @@
 
   sisobus
   ----------------------------------------------------------------------
-  v1.0 (proposal) demo: IP collision (merge), head-on case.
+  IP collision (merge) demo, head-on case (SPEC §3.8).
 
   Run with:
 
-      windy run --v1 examples/storm.wnd
+      windy run examples/storm.wnd
 
   Output is empty and the program halts cleanly with exit 0. The
   interesting part is what happens on the way there.
@@ -27,7 +27,7 @@
               "head-on storm cancels itself" — merged IP dies.
      4    (no live IPs — program halts)
 
-  The collision rule (SPEC § Pre-release: v1.0 / IP Collision):
+  The collision rule (SPEC §3.8 IP Collision):
 
     1. After every tick's movement step, group live IPs by (x, y).
     2. For each group of two-or-more, sort by birth order.
@@ -41,11 +41,11 @@
 
   Things to try:
 
-    - Without --v1, the same source still SPLITs (`t` is in v0.4),
-      but no collision pass runs — IP#0 and IP#1 simply pass through
-      each other at (1,0) and keep drifting until --max-steps fires.
-      Run `windy run --max-steps 50 examples/storm.wnd` to see the
-      cap-out.
+    - Add --v0 to opt into the legacy gate. The same source still
+      SPLITs (`t` is in v0.4), but no collision pass runs — IP#0 and
+      IP#1 simply pass through each other at (1,0) and keep drifting
+      until --max-steps fires. Run `windy run --v0 --max-steps 50
+      examples/storm.wnd` to see the cap-out.
 
     - To watch a non-fatal merge, design a layout where the two IPs
       arrive at the same cell with PERPENDICULAR directions. Their

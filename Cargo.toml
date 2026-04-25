@@ -1,6 +1,6 @@
 [package]
 name = "windy"
-version = "0.4.0"
+version = "1.0.0"
 edition = "2021"
 rust-version = "1.75"
 description = "Windy — a 2D esoteric programming language where code flows like wind."

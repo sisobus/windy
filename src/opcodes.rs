@@ -3,11 +3,12 @@
 use num_bigint::BigInt;
 use num_traits::ToPrimitive;
 
-/// All Windy opcodes plus the internal `Unknown` fallback. v0.4 has 33
-/// opcodes; v1.0 (proposal — opt-in) adds GUST and CALM for the wind-
-/// speed mechanic. The new opcodes are decoded unconditionally; the VM
-/// gates them on its `v1` flag and treats them as Unknown (NOP + warning)
-/// when the flag is off.
+/// All Windy opcodes plus the internal `Unknown` fallback. v1.0 has
+/// 35 opcodes — the original 33 from v0.4 plus GUST and CALM, which
+/// drive the wind-speed mechanic (SPEC §3.7). The two new opcodes are
+/// decoded unconditionally; the VM gates them on its `v1` flag and
+/// treats them as Unknown (NOP + warning) under the `--v0` legacy
+/// gate.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Op {
     // Flow
@@ -31,7 +32,7 @@ pub enum Op {
     PutNum, PutChr, GetNum, GetChr,
     // Grid memory
     GridGet, GridPut,
-    // v1.0 (proposal): wind speed
+    // v1.0: wind speed (SPEC §3.7)
     Gust,
     Calm,
     // Fallback for glyphs outside the op table
@@ -195,8 +196,9 @@ mod tests {
 
     #[test]
     fn decode_v1_gust_calm() {
-        // v1.0 (proposal) opcodes — decoded unconditionally; the VM
-        // gates them on its `v1` flag.
+        // The v1.0 wind-speed opcodes are decoded unconditionally;
+        // the VM gates them on its `v1` flag and falls back to
+        // Unknown (warning + NOP) under the `--v0` legacy gate.
         assert_eq!(decode_cell(&bi('≫' as u32)), (Op::Gust, 0));
         assert_eq!(decode_cell(&bi('≪' as u32)), (Op::Calm, 0));
     }

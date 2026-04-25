@@ -7,60 +7,52 @@
 
 ## 한눈에
 
-- **현재 버전**: 크레이트 0.4.0, 언어 SPEC v0.4. 33 opcode + 동시 IP (`t` SPLIT).
+- **현재 버전**: 크레이트 1.0.0, 언어 SPEC v1.0. 35 opcode (33 + ≫/≪),
+  동시 IP + 풍속 + 충돌 merge. v0.4는 `--v0` legacy gate로 보존.
 - **배포 중**: 브라우저 플레이그라운드 [windy.sisobus.com](https://windy.sisobus.com),
   WASI 바이너리 [windy.sisobus.com/windy.wasm](https://windy.sisobus.com/windy.wasm).
   CI는 `main` push 시 자동 build → S3 sync → CloudFront `/*` invalidate.
-- **다음 마일스톤**: **v1.0 cut**. 의미론은 **F 풍속 + D IP 충돌(merge)**
-  으로 결정 완료, SPEC에 `## Pre-release: v1.0 (proposal)` 초안 머지됨.
-  이제 구현 단계.
-- **v0.5 publish는 v1.0 이후로 defer**. crates.io 첫 publish + repo public을
-  v0.5 시점에 끊으면 곧바로 v1.0으로 major bump해야 해서 churn이 큼.
-  v1.0이 준비되면 그 시점에 publish + public 한 번에 처리.
+- **publish 상태**: v1.0 cut 직후 crates.io 첫 publish + repo public 전환
+  남아있음 (사용자 `cargo login` 1회 후 `cargo publish`).
 
 ## 즉시 작업 가능한 항목
 
-v1.0 (proposal) 구현 한 바퀴 다 돌았습니다. 다음 세션 우선순위:
+v1.0 정식 cut 완료. 다음 세션 우선순위:
 
-1. **v1.0 stabilize → 정식 cut**.
-   - `--v1` 플래그를 default-on으로 뒤집기 + `--v0` legacy 게이트 추가.
-   - 크레이트 버전을 `1.0.0`으로 bump, SPEC.md 헤더 v0.4 → v1.0,
-     `## Pre-release: v1.0 (proposal)`을 정식 §11 같은 곳으로 이동.
-   - 리팩터: README "Why Windy"의 "honest dialect labelling" 문구를
-     v1.0 정체성 (속도 + 충돌)으로 갱신.
-2. **v1.0 cut 직후, deferred publish 일괄 처리**.
-   - `cargo login` (사용자 1회) → `cargo publish --dry-run` →
+1. **deferred publish 일괄 처리**.
+   - 사용자가 `cargo login` 1회 → `cargo publish --dry-run` →
      `cargo publish`.
-   - GitHub repo public 전환. README 뱃지 자동 라이브.
-3. **추가 v1.0 케이스 / 데모**:
+   - GitHub repo public 전환. crates.io 뱃지 자동 라이브.
+2. **추가 v1.0 데모 / UX**:
    - 비대칭 충돌 — 직각 만남으로 살아남는 merge 케이스. 스택 concat
      검증을 stdout으로 끌어내려면 layout 조립이 필요.
    - 디버거에서 merge 이벤트가 일어났을 때 시각적으로 강조 (현재는
      상태 패널의 ips 카운트 변화로만 추론 가능). step-by-step UI 개선.
-4. **빌드 산출물에 진짜 파일명 hash 도입** (지금은 `?v=<sha>` 쿼리스트링).
+3. **빌드 산출물에 진짜 파일명 hash 도입** (지금은 `?v=<sha>` 쿼리스트링).
    v1.0 publish 후 미세 최적화.
+4. **v1.x 후보**: SPEC §10에 따라 mid-segment IP crossing 검출,
+   fingerprint / 확장 메커니즘, std-lib overlay 중 우선순위 결정.
 
-### 이미 끝난 v1.0 구현 체크리스트 (참고용)
+### v1.0 구현/cut 체크리스트 (참고용)
 
 - `Op::Gust`/`Op::Calm` decode + name (`src/opcodes.rs`)
 - `IpContext.speed: BigInt`, 기본 1 (`src/vm.rs`)
-- `Vm::with_v1` ctor + `pub v1: bool` + `pub trapped: bool`
+- `Vm::new` = v1 default; `Vm::with_v1(.., v1)` ctor 노출
 - `ExitCode::Trap` (134), `Vm::run`이 trap 후 종료
 - 이동 단계 v1: `pos += dir * speed`, 도착 셀만 실행
 - SPLIT 자식 부모 speed 상속
 - GUST/CALM 디스패처 (CALM at 1 = 트랩)
 - 충돌 merge pass (birth-order, 스택 concat, 벡터 합 clip, speed max,
   strmode reset, `(0,0)` ⇒ die)
-- CLI `--v1`: `windy run --v1` / `windy debug --v1`
-- wasm `Session::new(.., v1)`, `run(.., v1)`, getter `session.v1` /
-  `session.trapped` / `session.speed_for(i)`
-- 75 unit tests (12 v1) + conformance/v1.json (4 cases) +
-  `tests/conformance_v1.rs` 하네스 + additivity 테스트 (v0 cases 모두
-  v1 모드에서 동일 출력)
+- CLI: `windy run [--v0] FILE` / `windy debug [--v0] FILE`
+- wasm `Session::new(.., v1?)`, `run(.., v1?)` (둘 다 `null` ⇒ v1 default),
+  getter `session.v1` / `session.trapped` / `session.speed_for(i)`
+- 75 unit tests + conformance/v1.json + `tests/conformance_v1.rs` 하네스 +
+  additivity 테스트 (v0 cases 모두 v1 모드에서 동일 출력)
 - `examples/gust.wnd`, `examples/storm.wnd`
-- 플레이그라운드: example picker에 gust/storm 추가 (선택 시 v1 자동
-  on), 툴바에 v1 체크박스, Opcode Reference에 ≫/≪ 별도 행, 디버그
-  state 패널에 speed/trap 표시, exit 134 → "trap" 라벨
+- 플레이그라운드: 툴바에 "legacy v0" 체크박스 (default OFF = v1),
+  Opcode Reference에 ≫/≪ 통합, 디버그 state 패널에 speed/trap 표시,
+  exit 134 → "trap" 라벨
 
 ## 개요
 
@@ -90,7 +82,7 @@ windy/
 ├── Cargo.lock
 ├── LICENSE                # MIT
 ├── README.md              # "Why Windy" + WASI / 플레이그라운드 안내 + 뱃지
-├── SPEC.md                # 언어 명세 — 단일 진실 원본 (v0.4)
+├── SPEC.md                # 언어 명세 — 단일 진실 원본 (v1.0)
 ├── CLAUDE.md              # 이 파일
 ├── src/
 │   ├── lib.rs             # 퍼블릭 re-exports + wasm_api 게이트
@@ -99,16 +91,16 @@ windy/
 │   ├── opcodes.rs         # Op enum + decode_cell
 │   ├── parser.rs          # BOM/CRLF/shebang 정규화 + grid 빌드
 │   ├── easter.rs          # sisobus 워터마크 + banner() (CARGO_PKG_VERSION 동기화)
-│   ├── vm.rs              # multi-IP VM, run_source, all 33 opcode 디스패치
+│   ├── vm.rs              # multi-IP VM, run_source, all 35 opcode 디스패치 + 충돌 merge pass
 │   ├── debugger.rs        # 터미널 인터랙티브 스텝 (ANSI + 박스 그리기)
 │   └── wasm_api.rs        # 브라우저 빌드용 wasm-bindgen 래퍼 (Session 등)
 ├── tests/
-│   ├── conformance.rs     # conformance/cases.json 로더 + 검증 (v0.4)
+│   ├── conformance.rs     # conformance/cases.json 로더 + 검증 (v0.4 surface, --v0 mode)
 │   └── conformance_v1.rs  # v1.json 로더 + additivity 가드 (v0 cases도
 │                          #   v1 모드에서 동일 출력 보장)
 ├── conformance/
-│   ├── cases.json         # v0.4 언어 중립 골든 (29 cases)
-│   └── v1.json            # v1.0 (proposal) 골든 (4 cases — gust skip,
+│   ├── cases.json         # v0.4 surface 언어 중립 골든 (29 cases)
+│   └── v1.json            # v1.0 신규 골든 (4 cases — gust skip,
 │                          #   gust/calm cycle, calm@1 trap, 2× gust)
 ├── examples/
 │   ├── hello.wnd          # 직선 "Hello, World!"
@@ -117,8 +109,8 @@ windy/
 │   ├── stars.wnd          # 별 삼각형, stack pre-load + 카운터 루프
 │   ├── factorial.wnd      # 1!..10!, BigInt 자랑
 │   ├── split.wnd          # 동시 IP (`t`) 데모, 두 IP 모두 깨끗하게 halt
-│   ├── gust.wnd           # v1.0 (proposal): 풍속 (≫/≪) — --v1로 실행
-│   └── storm.wnd          # v1.0 (proposal): 충돌 merge head-on death
+│   ├── gust.wnd           # 풍속 (≫/≪) 데모 — `--v0`로 v0.4 reading 비교
+│   └── storm.wnd          # 충돌 merge head-on death 데모
 ├── web/                   # 정적 플레이그라운드 (CI가 build해서 S3에 sync)
 │   ├── index.html         # 에디터 + Run/Debug + Opcode Reference panel
 │   ├── main.js            # ES module, Session API 사용
@@ -139,10 +131,12 @@ windy/
 1. **SPEC이 진실.** 구현과 명세가 어긋나면 둘 중 하나가 틀린 것 — 반드시
    SPEC도 같이 갱신할 것.
 2. **현재 버전 범위 밖 기능은 SPEC §10 "Reserved for Future Versions"에
-   먼저 적는다.** v1.0 후보는 §10에 카탈로그 + `docs/v1.0-design.md`에
-   상세.
+   먼저 적는다.** v1.x 후보(mid-segment crossing, fingerprint, std-lib
+   overlay)는 §10에 카탈로그. v1.0 결정 회고는 `docs/v1.0-design.md`
+   참고.
 3. **테스트는 `cargo test`.** 유닛 테스트는 `#[cfg(test)]` 블록, 통합은
-   `tests/conformance.rs`. 현재 62 unit + 1 conformance(29 cases).
+   `tests/conformance.rs` (v0.4 surface, `--v0` 모드) +
+   `tests/conformance_v1.rs` (v1.0 신규 + additivity 가드).
 4. **커밋 메시지**는 영문/한글 평서문, body는 명확히. why > what.
 5. **`sisobus` 워터마크는 언어의 정체성.** `banner()`이 `CARGO_PKG_VERSION`
    따라 자동 갱신되도록 박혀 있음. 변조/삭제 금지.
@@ -185,7 +179,7 @@ cargo test --test conformance          # conformance만
 
 ## 배포 / 인프라
 
-- **Repo**: `sisobus/windy` (현재 private, v0.5에서 public 전환 계획)
+- **Repo**: `sisobus/windy` (현재 private, v1.0 publish와 함께 public 전환 예정)
 - **CI**: `.github/workflows/deploy.yml`. main push 또는 workflow_dispatch에
   반응. Rust stable + wasm32-unknown-unknown + wasm32-wasip1 toolchain →
   wasm-pack 0.13.1 → `wasm-pack build --target web` + `cargo build --target
@@ -211,7 +205,7 @@ Python 인터프리터 + rich 디버거 + WASI output-baking stopgap. v0.2에서
 
 ### v0.2 (Rust 재구현) ✅
 
-- [x] 크레이트 스캐폴드, 33 opcode VM(당시 32에서 v0.4가 1 추가), clap CLI
+- [x] 크레이트 스캐폴드, 32 opcode VM(v0.4가 SPLIT 1개 추가하여 33개), clap CLI
 - [x] `conformance/cases.json` + Rust 하네스
 - [x] Python 제거 + Rust 루트 승격
 - [x] `debug` 서브커맨드 (터미널 stepper, 무 TUI 크레이트)
@@ -238,7 +232,7 @@ Python 인터프리터 + rich 디버거 + WASI output-baking stopgap. v0.2에서
 - [x] Conformance 케이스 + Rust 유닛 테스트 다수
 - [x] `examples/split.wnd` 추가 — 두 IP 모두 깨끗하게 halt
 
-### v0.5 (배포 채널 확장) — 부분 완료, publish는 v1.0과 합본
+### v0.5 (배포 채널 확장) ✅ — publish는 v1.0과 합본
 
 - [x] `wasm32-wasip1` 타겟. CI가 빌드해서 `web/windy.wasm`로 S3 sync.
       `wasmtime --dir=. windy.wasm run hello.wnd` 식으로 실행.
@@ -246,28 +240,24 @@ Python 인터프리터 + rich 디버거 + WASI output-baking stopgap. v0.2에서
 - [x] `LICENSE` (MIT) 추가, `Cargo.toml` 메타데이터 정비 (keywords,
       categories, anchored include 리스트). `cargo package --list`로
       깨끗한 23 files / 33KiB 압축 확인.
-- [x] README "Why Windy" 섹션 — 풍 메타포 + sisobus + 정직한 dialect
-      라벨링 + windy.sisobus.com 링크 + 뱃지.
+- [x] README "Why Windy" 섹션 (v1.0 cut에서 정체성 문구 갱신).
 - [x] `docs/v1.0-design.md` — v1.0 후보 5개 분석 + F+D 결정 (post-review).
 - [x] 캐시버스팅 (`?v=<sha>` + CDN invalidation).
-- [→ v1.0] **`crates.io` 첫 publish**. v0.5 publish 후 곧장 v1.0 major
-      bump 따라오면 churn 큼 → v1.0과 같이 publish. 준비 완료 상태로
-      대기 (cargo login만 사용자 1회).
-- [→ v1.0] **repo public 전환** + 뱃지 데이터 노출. 위와 동일 사유로
-      v1.0과 같이 공개.
+- [→ v1.0] **`crates.io` 첫 publish** + repo public 전환은 v1.0 cut과
+      합본. 사용자 `cargo login` 1회 후 publish 가능.
 
-### v1.0 (Befunge dialect 벗어나기) — 의미론 + 구현 둘 다 완료, --v1 opt-in
+### v1.0 (Befunge dialect 벗어나기) ✅ — 정식 cut 완료
 
-**의미론 결정 (post v0.5 review):** **F (풍속) + D (IP 충돌 merge)** 둘 다
-채택. 둘 다 additive·직교, 풍속이 만든 race 패턴이 충돌 의미론과 맞물림.
-정식 명세는 SPEC § *Pre-release: v1.0 (proposal)*, 결정 사유와 reject된
-후보(A 관성 / B 시간축 / C 2D 스택 / E 다중토큰)는 `docs/v1.0-design.md`.
+**의미론**: **F (풍속) + D (IP 충돌 merge)** 둘 다 채택. 둘 다 additive ·
+직교; 풍속이 만든 race 패턴이 충돌 의미론과 맞물림. 정식 명세는 SPEC
+§3.7 / §3.8 + §4 opcode 표 + §7 edge cases. 결정 사유와 reject된 후보
+(A 관성 / B 시간축 / C 2D 스택 / E 다중토큰)는 `docs/v1.0-design.md`.
 
-**합의된 디테일** (사용자 사인 받음, 코드에 박힘):
+**합의된 디테일** (코드에 박힘):
 
 - 풍속은 `BigInt` (upper bound 없음). CALM이 GUST 대칭이라 deceleration
   항상 가능.
-- `≪` at speed=1 ⇒ 0 되니 **런타임 트랩** (CALM에 sharp edge 필요).
+- `≪` at speed=1 ⇒ 0 되니 **런타임 트랩** (CALM에 sharp edge).
   `ExitCode::Trap` (134), `Vm.trapped` 플래그로 surface.
 - speed=N 의미: 한 tick에 N칸 점프, **도착 셀만 실행**, 중간 셀 스킵
   (string-mode 토글 / unknown-glyph 경고 다 안 일어남).
@@ -276,15 +266,15 @@ Python 인터프리터 + rich 디버거 + WASI output-baking stopgap. v0.2에서
   `(0,0)` ⇒ die) / speed = max / strmode = false.
 - mid-segment 교차(스왑) 검출 안 함. v1.x로 미룸.
 
-**현재 상태**: `--v1` 플래그로 opt-in. 플래그 OFF면 v0.4와 비트-동일
-(additivity 테스트가 cases.json 전체를 v1 모드로도 돌려서 동일 출력
-확인). 플래그 ON이면 ≫/≪ 활성, 충돌 pass 실행, exit 134 trap 가능.
+**Cut 디테일**:
 
-**남은 v1.0 작업** (§ "즉시 작업 가능한 항목" 1번 참고):
-
-- 정식 cut: `--v1` default-on, crate 1.0.0, SPEC v1.0 헤더 승급, README
-  v1.0 정체성 갱신.
-- 정식 cut 직후 crates.io publish + repo public.
+- `--v1` 플래그 제거 + `--v0` legacy gate 추가. v1 default-on; `--v0`
+  지정 시 ≫/≪ unknown decode + 충돌 패스 skip = v0.4와 비트-동일.
+- 크레이트 1.0.0, SPEC.md v1.0 헤더, "Pre-release" 섹션은 §3.7/§3.8로
+  편입.
+- 플레이그라운드 v0 토글: default OFF (= v1).
+- additivity guard (`tests/conformance_v1.rs::v0_cases_pass_under_v1_mode`)
+  유지. cases.json은 여전히 v0.4 surface goldens, v1.json은 v1.0 신규.
 
 ### v1.x+
 

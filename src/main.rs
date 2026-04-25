@@ -34,19 +34,20 @@ enum Command {
         /// Halt after N executed steps (exit 124 if exceeded).
         #[arg(long = "max-steps")]
         max_steps: Option<u64>,
-        /// Enable v1.0 (proposal) semantics: wind speed (≫/≪) and IP
-        /// collision merge. Off by default — without this flag the
-        /// runtime is bit-identical to v0.4.
-        #[arg(long = "v1")]
-        v1: bool,
+        /// Run in v0.4 legacy mode: disable wind speed (≫/≪) and the
+        /// IP collision merge pass. With this flag the runtime is
+        /// bit-identical to the pre-v1.0 implementation; without it
+        /// you get the full v1.0 semantics.
+        #[arg(long = "v0")]
+        v0: bool,
     },
     /// Step through a Windy program interactively.
     Debug {
         /// Path to the .wnd source file.
         file: PathBuf,
-        /// Enable v1.0 (proposal) semantics in the debugger.
-        #[arg(long = "v1")]
-        v1: bool,
+        /// Step through the program in v0.4 legacy mode.
+        #[arg(long = "v0")]
+        v0: bool,
     },
     /// Print the Windy version.
     Version,
@@ -59,7 +60,7 @@ fn main() -> ProcessExit {
             println!("Windy {}", VERSION);
             ProcessExit::from(0)
         }
-        Command::Run { file, seed, max_steps, v1 } => {
+        Command::Run { file, seed, max_steps, v0 } => {
             let source = match fs::read_to_string(&file) {
                 Ok(s) => s,
                 Err(e) => {
@@ -75,7 +76,7 @@ fn main() -> ProcessExit {
                 RunOptions {
                     seed,
                     max_steps,
-                    v1,
+                    v1: !v0,
                     stdin: &mut stdin,
                     stdout: &mut stdout,
                     stderr: &mut stderr,
@@ -83,7 +84,7 @@ fn main() -> ProcessExit {
             );
             ProcessExit::from(code.code() as u8)
         }
-        Command::Debug { file, v1 } => {
+        Command::Debug { file, v0 } => {
             let source = match fs::read_to_string(&file) {
                 Ok(s) => s,
                 Err(e) => {
@@ -92,7 +93,7 @@ fn main() -> ProcessExit {
                 }
             };
             let mut stdin = io::stdin().lock();
-            let code = debug_source(&source, &mut stdin, v1);
+            let code = debug_source(&source, &mut stdin, !v0);
             ProcessExit::from(code.clamp(0, 255) as u8)
         }
     }

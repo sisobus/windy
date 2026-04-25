@@ -47,8 +47,7 @@ const STR_QUOTE: u32 = 0x22;
 pub enum ExitCode {
     Ok,
     MaxSteps,
-    /// Runtime trap (e.g. CALM at speed 1 under v1.0). Per the v1.0
-    /// proposal in SPEC § *Pre-release: v1.0 (proposal)*, traps abort
+    /// Runtime trap (e.g. CALM at speed 1). Per SPEC §3.7, traps abort
     /// the program with a non-zero exit code; we use 134 (matches the
     /// POSIX SIGABRT convention) so it's distinguishable from `--max-
     /// steps`'s 124 and from a normal halt.
@@ -70,10 +69,9 @@ impl ExitCode {
 pub struct RunOptions<'a> {
     pub seed: Option<u64>,
     pub max_steps: Option<u64>,
-    /// Enable the v1.0 (proposal) semantics: wind speed (`≫`/`≪`) and
-    /// IP collision (merge). Defaults to `false` — clients that want
-    /// strict v0.4 behavior can construct `RunOptions` with `..` + the
-    /// `Default` impl below.
+    /// Enable v1.0 semantics: wind speed (`≫`/`≪`) and IP collision
+    /// (merge). The language default is `true`; pass `false` to opt
+    /// into v0.4 legacy behavior (`--v0` on the CLI).
     pub v1: bool,
     pub stdin: &'a mut dyn Read,
     pub stdout: &'a mut dyn Write,
@@ -92,9 +90,9 @@ pub struct IpContext {
     /// during the same tick. Also used by the v1.0 collision pass to
     /// mark absorbed and head-on-cancelled IPs for end-of-tick removal.
     pub halted: bool,
-    /// v1.0 wind speed — strictly positive; `1` reproduces v0.4
-    /// movement. Carried as `BigInt` to match the language's
-    /// unbounded-arithmetic promise (SPEC §2 #4).
+    /// Wind speed — strictly positive (SPEC §3.7). `1` is the initial
+    /// value and reproduces pre-v1.0 movement. Carried as `BigInt` to
+    /// match the language's unbounded-arithmetic promise (SPEC §2 #4).
     pub speed: BigInt,
 }
 
@@ -124,28 +122,31 @@ pub struct Vm {
     /// live IP list — SPEC §3.6).
     pub steps: u64,
     pub max_steps: Option<u64>,
-    /// v1.0 (proposal) opt-in: wind speed + IP collision merge. When
-    /// off, `Op::Gust`/`Op::Calm` are treated as Unknown (NOP +
-    /// one-time warning) and no collision pass runs. SPEC §
-    /// *Pre-release: v1.0 (proposal)*.
+    /// v1.0 semantics gate: wind speed + IP collision merge. When off
+    /// (`--v0` legacy mode), `Op::Gust`/`Op::Calm` are treated as
+    /// Unknown (NOP + one-time warning) and no collision pass runs.
+    /// SPEC §3.7 / §3.8.
     pub v1: bool,
-    /// Set when a runtime trap occurs (currently only CALM-at-speed-1
-    /// in v1 mode). The main loop returns `ExitCode::Trap` after the
-    /// current tick completes.
+    /// Set when a runtime trap occurs (currently only CALM-at-speed-1).
+    /// The main loop returns `ExitCode::Trap` after the current tick
+    /// completes.
     pub trapped: bool,
     rng: ChaCha8Rng,
     warned: HashSet<u32>,
 }
 
 impl Vm {
+    /// Construct a `Vm` with the language defaults — i.e. v1.0
+    /// semantics enabled. Use `with_v1(.., false)` to opt into the
+    /// v0.4 legacy mode that `--v0` exposes.
     pub fn new(grid: Grid, seed: Option<u64>, max_steps: Option<u64>) -> Self {
-        Self::with_v1(grid, seed, max_steps, false)
+        Self::with_v1(grid, seed, max_steps, true)
     }
 
-    /// Construct a `Vm` with the v1.0 proposal semantics enabled or
-    /// disabled. `Vm::new` is `with_v1(.., false)`. Prefer this ctor
-    /// when the caller has an explicit user opt-in to surface (CLI
-    /// flag, browser toggle).
+    /// Construct a `Vm` with v1.0 semantics explicitly enabled or
+    /// disabled. Prefer this ctor when the caller has an explicit user
+    /// opt-in to surface (CLI `--v0`, browser toggle); `Vm::new`
+    /// defaults to v1 semantics.
     pub fn with_v1(
         grid: Grid,
         seed: Option<u64>,
@@ -201,8 +202,9 @@ impl Vm {
     /// Execute one full tick: every live IP takes one step, in birth
     /// order. IPs spawned via `t` during this tick wait until the next
     /// tick; IPs that executed `@` are removed at the end of this tick.
-    /// In v1.0 mode, after movement the runtime additionally runs a
-    /// collision pass that merges any IPs that share a cell.
+    /// Under v1 semantics, after movement the runtime additionally
+    /// runs a collision pass that merges any IPs that share a cell
+    /// (SPEC §3.8).
     pub fn step(
         &mut self,
         stdin: &mut dyn Read,
@@ -246,12 +248,13 @@ impl Vm {
         }
     }
 
-    /// v1.0 movement: `pos += dir × speed`, only the destination cell
-    /// will execute on the next tick (intermediate cells skipped).
-    /// Speed is BigInt; we clamp to `i64::MAX` for the i64 coordinate
-    /// arithmetic — consistent with the pragmatic i64 coords noted in
-    /// `grid.rs`. A speed beyond i64::MAX simply launches the IP into
-    /// the empty far field where every cell is space (NOP).
+    /// v1.0 movement (SPEC §3.7): `pos += dir × speed`, only the
+    /// destination cell will execute on the next tick (intermediate
+    /// cells skipped). Speed is BigInt; we clamp to `i64::MAX` for the
+    /// i64 coordinate arithmetic — consistent with the pragmatic i64
+    /// coords noted in `grid.rs`. A speed beyond i64::MAX simply
+    /// launches the IP into the empty far field where every cell is
+    /// space (NOP).
     fn advance_with_speed(&mut self, i: usize) {
         let speed_i64 = self.ips[i].speed.to_i64().unwrap_or(i64::MAX);
         let dx = self.ips[i].ip.dx.saturating_mul(speed_i64);
@@ -260,13 +263,13 @@ impl Vm {
         self.ips[i].ip.y = self.ips[i].ip.y.saturating_add(dy);
     }
 
-    /// v1.0 collision pass: group live IPs by `(x, y)` and merge each
-    /// non-singleton group in birth order. Stack concatenation keeps
-    /// the oldest IP's stack at the bottom; direction is the per-axis
-    /// sum clipped to `{-1, 0, +1}` (sum of `(0, 0)` ⇒ merged IP dies);
-    /// speed is the max of the constituents; strmode resets to off.
-    /// Absorbed IPs are marked halted so the post-collision `retain`
-    /// drops them. SPEC § *Pre-release: v1.0 (proposal)* §IP Collision.
+    /// v1.0 collision pass (SPEC §3.8): group live IPs by `(x, y)`
+    /// and merge each non-singleton group in birth order. Stack
+    /// concatenation keeps the oldest IP's stack at the bottom;
+    /// direction is the per-axis sum clipped to `{-1, 0, +1}` (sum of
+    /// `(0, 0)` ⇒ merged IP dies); speed is the max of the
+    /// constituents; strmode resets to off. Absorbed IPs are marked
+    /// halted so the post-collision `retain` drops them.
     fn collision_pass(&mut self) {
         let mut groups: HashMap<(i64, i64), Vec<usize>> = HashMap::new();
         for (i, ctx) in self.ips.iter().enumerate() {
@@ -343,9 +346,9 @@ impl Vm {
             Op::Trampoline => self.ips[i].ip.advance(),
             Op::Split => {
                 let here = self.ips[i].ip;
-                // v1.0: child inherits parent's speed at split time
-                // (SPEC § *Pre-release: v1.0*). For v0.4 the field is
-                // always 1, so the clone is harmless.
+                // SPEC §3.5 / §3.7: child inherits parent's speed at
+                // split time. In v0 legacy mode `speed` is always 1,
+                // so the clone is harmless.
                 let parent_speed = self.ips[i].speed.clone();
                 let new_ctx = IpContext {
                     ip: Ip {
@@ -903,11 +906,12 @@ mod tests {
         assert_eq!(String::from_utf8(stdout).unwrap(), "5 ");
     }
 
-    // ---------- v1.0 (proposal) tests ----------
+    // ---------- v1.0 wind-speed + collision-merge tests ----------
     //
     // Wind-speed (≫/≪) and IP-collision-merge semantics from
-    // SPEC § *Pre-release: v1.0 (proposal)*. v1 mode is opt-in; v0
-    // companion tests confirm the additive promise.
+    // SPEC §3.7 and §3.8. v1 is the language default; v0 companion
+    // tests above confirm the additive promise (programs without ≫/≪
+    // and without collisions behave identically under both gates).
 
     use crate::parser::parse as parse_source;
 

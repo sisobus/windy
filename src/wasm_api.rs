@@ -57,7 +57,10 @@ pub fn run(
         RunOptions {
             seed,
             max_steps,
-            v1: v1.unwrap_or(false),
+            // v1 semantics are the default in 1.0; callers pass
+            // `false` only when the playground's "v0 legacy" toggle is
+            // on. `null` from JS means "use the language default".
+            v1: v1.unwrap_or(true),
             stdin: &mut stdin_bytes,
             stdout: &mut stdout,
             stderr: &mut stderr,
@@ -92,9 +95,11 @@ pub struct Session {
 #[wasm_bindgen]
 impl Session {
     /// Construct a session and emit the sisobus banner to captured
-    /// stderr if the source text carries the watermark. `v1` opts into
-    /// the v1.0 (proposal) semantics — wind speed + IP collision merge
-    /// — and is `null` (= off) by default for v0.4 compatibility.
+    /// stderr if the source text carries the watermark. `v1` selects
+    /// the v1.0 semantics — wind speed + IP collision merge — and is
+    /// the language default. Pass `false` to opt back into v0.4
+    /// legacy behavior; `null` means "use the language default" and
+    /// matches the CLI without `--v0`.
     #[wasm_bindgen(constructor)]
     pub fn new(
         source: &str,
@@ -108,7 +113,7 @@ impl Session {
         if detect(&scan_text) {
             let _ = writeln!(stderr, "{}", banner());
         }
-        let vm = Vm::with_v1(grid, seed, max_steps, v1.unwrap_or(false));
+        let vm = Vm::with_v1(grid, seed, max_steps, v1.unwrap_or(true));
         Session {
             vm,
             stdin: stdin.as_bytes().to_vec(),
@@ -174,9 +179,9 @@ impl Session {
         self.vm.steps
     }
 
-    /// True when the v1.0 (proposal) semantics are enabled for this
-    /// session — useful for the playground to render the speed badge
-    /// and the new-opcode help only when relevant.
+    /// True when the v1.0 semantics are enabled for this session
+    /// (i.e. legacy `--v0` is OFF). Useful for the playground to
+    /// render the speed badge and trap-state row only when relevant.
     #[wasm_bindgen(getter)]
     pub fn v1(&self) -> bool {
         self.vm.v1

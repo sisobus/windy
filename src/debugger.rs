@@ -161,8 +161,9 @@ fn render_frame(out: &mut dyn Write, vm: &Vm, captured: &[u8]) -> io::Result<()>
 /// Reads commands from `stdin_commands`. The VM's own stdin is fixed as
 /// an empty byte slice — Windy programs under the debugger can't prompt
 /// for input because the real stdin is owned by the debugger loop.
-/// `v1` opts into the v1.0 (proposal) semantics — wind speed + IP
-/// collision merge — for the duration of this debug session.
+/// `v1` selects the v1.0 semantics — wind speed + IP collision merge.
+/// Pass `false` to opt into the v0.4 legacy mode that the CLI exposes
+/// as `--v0`.
 pub fn debug_source(source: &str, stdin_commands: &mut dyn BufRead, v1: bool) -> i32 {
     debug_source_inner(source, stdin_commands, &mut io::stderr(), &mut io::stdout(), v1)
 }

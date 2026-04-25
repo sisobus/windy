@@ -25,9 +25,9 @@ thematic pun on that name.
 
 ## Why Windy
 
-Windy is, in execution-model terms, a Befunge-98 derivative — same 2D grid,
-same stack-with-self-modification, same concurrent IPs. What's actually
-distinctive is the surface, the strictness, and the story:
+Windy started in the Befunge-98 family — same 2D grid, same
+stack-with-self-modification, same concurrent IPs. v1.0 is where it
+stops being a dialect and becomes its own language. What you get:
 
 ### The eight winds are the canonical surface
 
@@ -45,13 +45,48 @@ first-class citizens — there's no `q` / `r` opcode you have to remember; if
 you can draw the path, you can encode it. The whole point is that you read
 the program by following the wind, not by parsing text left-to-right.
 
+### Wind has speed (`≫` / `≪`)
+
+Each IP carries a strictly positive `speed` (default `1`) and advances
+`speed` cells per tick. Only the destination cell decodes — intermediate
+cells are not even read for unknown-glyph warnings or string-mode
+toggles. **High wind blows past obstacles.** `≫` (GUST) bumps speed,
+`≪` (CALM) trims it. `≪` at speed 1 is a *runtime trap* (exit 134)
+rather than a silent clamp: calm in still air is an error, by design.
+
+```
+≫9.@@   →   "0 "    (speed=2 skips the 9; the `.` finds an empty stack)
+9.@     →   "9 "    (the v0.4 reading; toggle --v0 to see it)
+```
+
+Speed is BigInt — there is no upper bound — which keeps the language's
+"no bounded datatypes" promise consistent. See
+[SPEC §3.7](SPEC.md#37-wind-speed).
+
+### IPs collide (`t` + collision merge)
+
+`t` (SPLIT) spawns a second IP behind the executing one. Until v1.0
+they passed through each other forever. In v1.0, **end-of-tick
+coincidence is a collision**, and the runtime merges any group of IPs
+that share a cell:
+
+- Stacks **concatenate** in birth order, oldest at the bottom.
+- Directions are **summed and clipped** to `{-1, 0, +1}` per axis. A
+  head-on storm — sum `(0, 0)` — cancels itself: the merged IP dies.
+- Speed is the **max** over the constituents (strong wind absorbs
+  weak), strmode is forced off, the oldest IP keeps its slot in the
+  list.
+
+The merge order is fully determined by birth order, so the outcomes
+are reproducible across implementations. See
+[SPEC §3.8](SPEC.md#38-ip-collision-merge).
+
 ### `~` (TURBULENCE) — let the weather decide
 
 Standard Befunge has `?` to pick a random of four directions. Windy's `~`
 picks uniformly from all eight winds, and it's seeded for reproducible runs
-via `--seed N`. It's a flavour opcode that fits the metaphor: sometimes you
-let the weather route the IP for you, but you can still pin the weather for
-testing.
+via `--seed N`. Speed is preserved across a turbulence event — the wind
+swings, but it doesn't slacken.
 
 ### The `sisobus` watermark is part of the spec
 
@@ -61,7 +96,7 @@ stderr before the program runs:
 
 ```
 ╔═══════════════════════════════════════╗
-║  Windy v0.4.0                         ║
+║  Windy v1.0.0                         ║
 ║  Crafted by Kim Sangkeun (@sisobus)   ║
 ╚═══════════════════════════════════════╝
 ```
@@ -79,13 +114,18 @@ Befunge-98 leaves a lot to the implementation. Windy commits, by spec:
 - **Stack values are arbitrary-precision integers.** `factorial.wnd` runs
   through `10!` (3,628,800) without thinking; `100!` would too. No silent
   i32 / i64 wraparound, no "implementation-defined" range.
+- **Wind speed is unbounded.** Same promise applies to the `speed`
+  field — `≫` repeated a million times is legal; the IP just lands
+  far out in the empty far field of the grid where every cell is a
+  NOP.
 - **The grid is bi-infinite and sparse.** Negative `g` / `p` coordinates
   are perfectly legal; cells you never write occupy zero memory.
 - **Concurrent IPs are tick-deterministic.** Each tick is one round-robin
   pass over live IPs in birth order. New IPs born this tick wait until
-  the next; `@` halts only the executing IP. The same source, seed, and
-  stdin produce the same stdout — across the native CLI, the WASI binary,
-  and the browser playground.
+  the next; `@` halts only the executing IP; collision merges happen
+  in birth order. The same source, seed, and stdin produce the same
+  stdout — across the native CLI, the WASI binary, and the browser
+  playground.
 
 ### One Rust crate, three deploys
 
@@ -97,21 +137,20 @@ The same `windy` crate runs in three places:
 | `wasm32-wasip1` (`wasmtime`) | portable `windy.wasm`, no Rust toolchain      |
 | `wasm32-unknown-unknown` (browser) | the playground at [windy.sisobus.com](https://windy.sisobus.com) |
 
-A shared conformance harness (`conformance/cases.json`) pins stdout
-byte-for-byte across all three targets — divergence breaks CI.
+Two shared conformance harnesses (`conformance/cases.json` for the
+v0.4 surface, `conformance/v1.json` for the speed + collision cases)
+pin stdout byte-for-byte across all three targets — divergence breaks
+CI. The v1 harness also re-runs every v0.4 case under v1.0 semantics
+to enforce the additivity promise (programs that don't use `≫` / `≪`
+and don't produce a collision behave identically under both).
 
-### The honest framing
+### The legacy gate (`--v0`)
 
-Through the v0.x line, Windy is, semantically, "Befunge-98 with a
-Unicode-first surface, a mandatory author signature, and stricter
-promises about precision and grid storage." It's a *dialect*, not (yet) a
-fundamentally new language. v1.0 will adopt at least one semantic feature
-without precedent in the Befunge family — wind tension, time-aware grid,
-2D stack, IP collisions, or multi-token cells — and that's where Windy
-stops being "Befunge with a haircut." The candidates and the criteria for
-choosing one are catalogued in
-[SPEC §10](SPEC.md#10-reserved-for-future-versions) and
-[`docs/v1.0-design.md`](docs/v1.0-design.md).
+If you wrote a program against v0.4 and want to compare, every entry
+point accepts a `--v0` legacy gate: native CLI, the WASI binary, and
+the browser toolbar all expose the same toggle. Under `--v0` the
+runtime is bit-identical to pre-1.0 — `≫` and `≪` decode as unknown
+glyphs (NOP + warning), and the collision pass is skipped.
 
 ## Install
 
@@ -168,6 +207,11 @@ windy version
 - `examples/factorial.wnd` — 1! through 10!, demonstrating BigInt growth past i64.
 - `examples/split.wnd` — concurrent IPs via `t` (SPLIT). Two IPs run side
   by side, each with its own stack, both halting cleanly via their own `@`.
+- `examples/gust.wnd` — wind speed (`≫` GUST) skipping a digit cell. Run
+  with `--v0` to compare against the v0.4 reading.
+- `examples/storm.wnd` — head-on collision: two IPs meeting on the same
+  cell with opposite directions cancel each other and the program halts
+  cleanly.
 
 ## Browser playground
 
@@ -203,9 +247,11 @@ to consume the same file.
 
 ## Status
 
-**v0.4** — 33 opcodes including `t` (SPLIT) for concurrent IPs. The same Rust
-crate drives the native CLI, the interactive terminal stepper (`windy debug`),
-the WASI module shipped to [windy.sisobus.com/windy.wasm](https://windy.sisobus.com/windy.wasm),
+**v1.0** — 35 opcodes. Wind speed (`≫` GUST / `≪` CALM) and IP collision
+merge are normative; `--v0` keeps the v0.4 surface available as a legacy
+gate. The same Rust crate drives the native CLI, the interactive terminal
+stepper (`windy debug`), the WASI module shipped to
+[windy.sisobus.com/windy.wasm](https://windy.sisobus.com/windy.wasm),
 and the static browser playground at [windy.sisobus.com](https://windy.sisobus.com).
 See [SPEC.md §10](SPEC.md#10-reserved-for-future-versions) for the forward
 roadmap.
@@ -217,11 +263,12 @@ Version history:
 - **v0.3** — Browser playground. `windy` compiled to wasm32 via wasm-bindgen;
   static HTML page runs `.wnd` source serverlessly.
 - **v0.4** — Concurrent IPs via `t` (SPEC §3.5 / §3.6 / §4).
-- **v0.5** *(in progress)* — WASI distribution, crates.io publish prep,
-  README polish.
-- **v1.0** *(planned)* — Adopt at least one semantic feature without precedent
-  in the Befunge family so Windy stops being a "dialect with a haircut".
-  Candidate directions are catalogued in
+- **v0.5** — WASI distribution channel; crate metadata + LICENSE polish.
+- **v1.0** — Wind speed (`≫` / `≪`, SPEC §3.7) and IP collision merge
+  (SPEC §3.8). v0.4 remains reachable behind `--v0`. The cut is also
+  the first crates.io publish and the moment the repo went public.
+- **v1.x** *(planned)* — Mid-segment IP crossing detection, fingerprint
+  / extension mechanism, optional standard-library overlays. See
   [SPEC §10](SPEC.md#10-reserved-for-future-versions).
 
 ## Author

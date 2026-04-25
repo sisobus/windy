@@ -2,19 +2,19 @@
 
   sisobus
   ----------------------------------------------------------------------
-  v1.0 (proposal) demo: wind speed (≫ GUST / ≪ CALM)
+  Wind speed demo (≫ GUST / ≪ CALM, SPEC §3.7).
 
   Run this two ways and compare the output:
 
-      windy run    examples/gust.wnd      → "9 "  + warning to stderr
-      windy run --v1 examples/gust.wnd    → "0 "  (no warning)
+      windy run      examples/gust.wnd    → "0 "  (default v1.0)
+      windy run --v0 examples/gust.wnd    → "9 "  + warning to stderr
 
   The exact same source produces a different result because ≫ and ≪
-  are NOT v0.4 opcodes. Without --v1 they're "unknown glyphs" — the
-  runtime warns once and treats them as NOPs. With --v1 they manage
-  the IP's per-tick speed.
+  are NOT v0.4 opcodes. With --v0 (legacy gate) they're "unknown
+  glyphs" — the runtime warns once and treats them as NOPs. Without
+  --v0 (default) they manage the IP's per-tick speed.
 
-  Tick by tick on row 0, with --v1:
+  Tick by tick on row 0 (default v1.0):
 
     cell        op                         speed   IP after move
     ----        ------------------------   -----   -------------
@@ -30,7 +30,7 @@
   obstacles, including the digit 9 here, so `.` finds an empty stack
   and prints the underflow zero.
 
-  Compare with v0.4 (same source, no --v1):
+  Compare with v0.4 legacy (same source, with --v0):
 
     cell    op                                output
     ----    -----------------------------     ------

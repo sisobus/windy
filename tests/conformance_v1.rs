@@ -102,9 +102,9 @@ fn conformance_v1() {
 }
 
 /// Additivity guarantee: every existing v0.4 conformance case must
-/// still pass with `v1: true`. SPEC § *Pre-release: v1.0 (proposal)*
-/// promises that programs that don't use the new opcodes (≫/≪) and
-/// don't produce collisions behave identically under v0.4 and v1.0.
+/// still pass with `v1: true`. SPEC §3.7 / §3.8 promise that programs
+/// which don't use the new opcodes (≫/≪) and don't produce collisions
+/// behave identically under v0.4 and v1.0.
 #[test]
 fn v0_cases_pass_under_v1_mode() {
     let json_path = repo_root().join("conformance").join("cases.json");

@@ -126,15 +126,15 @@ const EXAMPLES = {
 
   sisobus
   ----------------------------------------------------------------------
-  v1.0 (proposal) demo: wind speed (≫ GUST / ≪ CALM).
+  Wind speed (≫ GUST / ≪ CALM) demo. Default output is "0 ".
 
-  Toggle the "v1" checkbox in the toolbar and re-Run to compare:
+  Toggle the "v0 legacy" checkbox to compare:
 
-    v0 (off): "9 " + a one-time "unknown glyph ≫" warning on stderr.
-    v1 (on):  "0 " — ≫ raises speed to 2, the digit 9 is SKIPPED, and
-              \`.\` finds an empty stack (underflow → 0).
+    v1 (default): "0 " — ≫ raises speed to 2, the digit 9 is SKIPPED,
+                  and \`.\` finds an empty stack (underflow → 0).
+    v0 legacy:    "9 " + a one-time "unknown glyph ≫" warning on stderr.
 
-  Tick by tick (v1):
+  Tick by tick (v1.0):
 
     cell        op                            speed   IP after move
     ----        --------------------------    -----   -------------
@@ -157,11 +157,11 @@ const EXAMPLES = {
 
   sisobus
   ----------------------------------------------------------------------
-  v1.0 (proposal) demo: IP collision (merge), head-on case.
+  IP collision (merge) demo, head-on case.
 
-  Run with the "v1" checkbox ON. Output is empty and the program
-  halts cleanly with exit 0. The interesting part is what happens
-  on the way there.
+  Default v1.0 semantics: output is empty and the program halts
+  cleanly with exit 0. The interesting part is what happens on the
+  way there.
 
   Tick by tick on row 0:
 
@@ -179,7 +179,7 @@ const EXAMPLES = {
               "head-on storm cancels itself" — merged IP dies.
      4    (no live IPs — program halts)
 
-  The collision rule (SPEC § Pre-release: v1.0 / IP Collision):
+  The collision rule (SPEC §3.8 IP Collision):
 
     1. After every tick's movement step, group live IPs by (x, y).
     2. For each group of two-or-more, sort by birth order.
@@ -193,9 +193,9 @@ const EXAMPLES = {
 
   Things to try:
 
-    - Turn v1 OFF and Run. The same source still SPLITs (\`t\` is
-      in v0.4) but no collision pass runs — the two IPs pass
-      through each other at (1,0) and drift forever. Use a
+    - Turn the "v0 legacy" checkbox ON and Run. The same source still
+      SPLITs (\`t\` is in v0.4) but no collision pass runs — the two
+      IPs pass through each other at (1,0) and drift forever. Use a
       max-steps cap so the page doesn't lock up.
 
     - To watch a non-fatal merge, design a layout where the two
@@ -238,7 +238,7 @@ const stdinEl = $('stdin');
 const pickerEl = $('example-picker');
 const seedEl = $('seed');
 const maxStepsEl = $('max-steps');
-const v1ModeEl = $('v1-mode');
+const legacyModeEl = $('v0-mode');
 const versionBadge = $('version-badge');
 
 // Idle-mode toolbar + run output
@@ -269,16 +269,8 @@ let wasmReady = false;
 let session = null;
 let mode = 'idle'; // 'idle' | 'debug'
 
-// Examples that need v1 mode to behave as documented. Selecting one
-// auto-flips the toggle so users don't get confused by the v0 fallback
-// behavior on first Run.
-const V1_EXAMPLES = new Set(['gust', 'storm']);
-
 function loadExample(key) {
   sourceEl.value = EXAMPLES[key] ?? '';
-  if (V1_EXAMPLES.has(key) && !v1ModeEl.checked) {
-    v1ModeEl.checked = true;
-  }
 }
 
 function parseOptionalBigInt(value) {
@@ -306,7 +298,7 @@ async function handleRun() {
       stdinEl.value,
       parseOptionalBigInt(seedEl.value),
       parseOptionalBigInt(maxStepsEl.value),
-      v1ModeEl.checked,
+      !legacyModeEl.checked,
     );
     stdoutEl.textContent = result.stdout;
     stderrEl.textContent = result.stderr;
@@ -486,7 +478,7 @@ function buildSession() {
     stdinEl.value,
     parseOptionalBigInt(seedEl.value),
     parseOptionalBigInt(maxStepsEl.value),
-    v1ModeEl.checked,
+    !legacyModeEl.checked,
   );
 }
 

@@ -24,15 +24,15 @@
         <option value="stars">stars.wnd</option>
         <option value="factorial">factorial.wnd</option>
         <option value="split">split.wnd</option>
-        <option value="gust">gust.wnd · v1.0 (proposal)</option>
-        <option value="storm">storm.wnd · v1.0 (proposal)</option>
+        <option value="gust">gust.wnd · wind speed</option>
+        <option value="storm">storm.wnd · IP collision</option>
         <option value="blank">(empty)</option>
       </select>
     </label>
     <label>Seed: <input id="seed" type="number" placeholder="(random)" min="0"></label>
     <label>Max steps: <input id="max-steps" type="number" placeholder="(unbounded)" min="1"></label>
-    <label class="v1-toggle" title="Enable v1.0 (proposal) semantics: wind speed (≫/≪) and IP collision merge.">
-      <input id="v1-mode" type="checkbox"> v1 <span class="hint">(≫/≪/merge)</span>
+    <label class="v1-toggle" title="Run in v0.4 legacy mode: disable wind speed (≫/≪) and the IP collision merge pass. Off by default — full v1.0 semantics.">
+      <input id="v0-mode" type="checkbox"> v0 legacy <span class="hint">(no ≫/≪, no merge)</span>
     </label>
     <button id="btn-run">Run</button>
     <button id="btn-debug">Debug</button>
@@ -90,7 +90,7 @@
 
   <section class="opcodes">
     <details id="opcode-reference">
-      <summary>Opcode reference <span class="hint">(33 + 2 v1.0 proposal — click to expand)</span></summary>
+      <summary>Opcode reference <span class="hint">(35 opcodes — click to expand)</span></summary>
       <p class="opcode-blurb">
         Every cell is one Unicode codepoint. Outside string mode, the IP
         decodes its current cell as one of these opcodes; inside string
@@ -118,6 +118,9 @@
             <tr><td>Wind</td><td><code>↘</code></td><td>MOVE_SE</td><td><code>dir ← (+1, +1)</code></td></tr>
             <tr><td>Wind</td><td><code>~</code></td><td>TURBULENCE</td><td>Pick a random direction from the eight winds. Use <code>--seed</code> for reproducibility.</td></tr>
 
+            <tr><td>Speed</td><td><code>≫</code></td><td>GUST</td><td><code>speed += 1</code>. The IP advances <code>speed</code> cells per tick; only the destination decodes.</td></tr>
+            <tr><td>Speed</td><td><code>≪</code></td><td>CALM</td><td><code>speed −= 1</code>; runtime trap (exit 134) if it would yield 0.</td></tr>
+
             <tr><td>Lit</td><td><code>0</code>…<code>9</code></td><td>PUSH_DIGIT</td><td>Push the digit's integer value (0–9).</td></tr>
             <tr><td>Lit</td><td><code>"</code></td><td>STR_MODE</td><td>Toggle string mode.</td></tr>
 
@@ -144,8 +147,6 @@
             <tr><td>Grid</td><td><code>g</code></td><td>GRID_GET</td><td><code>y ← pop; x ← pop; push G[(x, y)]</code> (missing ⇒ 0x20).</td></tr>
             <tr><td>Grid</td><td><code>p</code></td><td>GRID_PUT</td><td><code>y ← pop; x ← pop; v ← pop; G[(x, y)] ← v</code></td></tr>
 
-            <tr class="v1-row"><td>v1</td><td><code>≫</code></td><td>GUST</td><td><code>speed += 1</code>. Only active with the v1 toggle on; otherwise unknown-glyph + NOP.</td></tr>
-            <tr class="v1-row"><td>v1</td><td><code>≪</code></td><td>CALM</td><td><code>speed −= 1</code>; trap (exit 134) if it would yield 0. v1 only.</td></tr>
           </tbody>
         </table>
       </div>
@@ -155,16 +156,15 @@
         see <a href="https://github.com/sisobus/windy/blob/main/SPEC.md#7-semantics-of-edge-cases" target="_blank">SPEC §7</a>.
       </p>
       <p class="opcode-blurb">
-        The two <strong>v1</strong> rows above are part of the
-        <a href="https://github.com/sisobus/windy/blob/main/SPEC.md#pre-release-v10-proposal" target="_blank">v1.0 proposal</a>:
-        each IP gains a positive-integer <em>speed</em> (default 1).
-        The IP advances <code>speed</code> cells per tick and only the
-        destination cell decodes — fast wind blows past obstacles. A
-        post-tick collision pass merges any IPs that share a cell:
-        stacks concatenate in birth order, directions are summed and
-        clipped (<code>(0,0)</code> ⇒ merged IP dies), speed becomes
-        <code>max</code>, strmode resets. Toggle the
-        <strong>v1</strong> checkbox in the toolbar to opt in.
+        Each IP carries a positive-integer <em>speed</em> (default 1)
+        and advances <code>speed</code> cells per tick — only the
+        destination cell decodes (<a href="https://github.com/sisobus/windy/blob/main/SPEC.md#37-wind-speed" target="_blank">SPEC §3.7</a>).
+        End-of-tick coincidence triggers a
+        <a href="https://github.com/sisobus/windy/blob/main/SPEC.md#38-ip-collision-merge" target="_blank">collision merge</a>
+        (§3.8): stacks concatenate in birth order, directions sum and
+        clip (<code>(0,0)</code> ⇒ merged IP dies), speed becomes
+        <code>max</code>, strmode resets. Toggle <strong>v0 legacy</strong>
+        in the toolbar to disable both and reproduce the v0.4 surface.
       </p>
     </details>
   </section>
