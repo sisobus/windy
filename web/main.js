@@ -841,31 +841,211 @@ continueBtn.addEventListener('click', doContinue);
 restartBtn.addEventListener('click', restartDebug);
 exitDebugBtn.addEventListener('click', exitDebug);
 
-// Click-to-insert glyph palette. The compass + extras buttons all
-// carry their glyph in `data-glyph`; one delegated handler drops
-// the glyph at the cursor in #source, fires an `input` event so
-// the URL hash updates, and refocuses the textarea so the caret
-// stays visible.
+// ---------- Vim-style modal editor ----------
+//
+// Two modes — NORMAL (default) and INSERT — and a small subset of
+// vim navigation keys, plus 2D-aware auto-padding so moving down or
+// right past the end of a row pads the destination with spaces.
+// First-time visitors typically pick an example and Run, never
+// touching the editor; users who actually edit hit `i` to type and
+// `Esc` to navigate.
+
+const modeBadge = $('mode-badge');
+const modeToggleBtn = $('btn-mode-toggle');
+let editorMode = 'normal';
+
+function setEditorMode(next) {
+  editorMode = next;
+  modeBadge.textContent = next === 'normal' ? 'NORMAL' : 'INSERT';
+  modeBadge.className = 'mode-badge mode-' + next;
+  modeToggleBtn.textContent = next === 'normal' ? 'i' : 'Esc';
+  document.body.classList.toggle('mode-normal', next === 'normal');
+  document.body.classList.toggle('mode-insert', next === 'insert');
+}
+setEditorMode('normal');
+
+// 1D textarea offset ↔ (row, col) helpers, with auto-padding moves.
+function cursorRowCol() {
+  const v = sourceEl.value;
+  const pos = sourceEl.selectionStart;
+  let row = 0, col = 0;
+  for (let i = 0; i < pos; i++) {
+    if (v.charCodeAt(i) === 10) { row++; col = 0; }
+    else col++;
+  }
+  return { row, col };
+}
+
+function rowColToOffset(lines, row, col) {
+  let pos = 0;
+  for (let r = 0; r < row; r++) pos += lines[r].length + 1;
+  return pos + col;
+}
+
+// Move cursor to (row, col). Pads with newlines / spaces as needed
+// so moving "down past the end" works without the user manually
+// typing whitespace.
+function moveTo(row, col) {
+  if (row < 0) row = 0;
+  if (col < 0) col = 0;
+  const lines = sourceEl.value.split('\n');
+  while (lines.length <= row) lines.push('');
+  while (lines[row].length < col) lines[row] += ' ';
+  sourceEl.value = lines.join('\n');
+  const pos = rowColToOffset(lines, row, col);
+  sourceEl.selectionStart = sourceEl.selectionEnd = pos;
+  sourceEl.dispatchEvent(new Event('input', { bubbles: true }));
+  sourceEl.focus();
+}
+
+function moveBy(dx, dy) {
+  const { row, col } = cursorRowCol();
+  moveTo(row + dy, col + dx);
+}
+
+function insertAtCursor(glyph) {
+  const start = sourceEl.selectionStart;
+  const end = sourceEl.selectionEnd;
+  const v = sourceEl.value;
+  sourceEl.value = v.slice(0, start) + glyph + v.slice(end);
+  const caret = start + glyph.length;
+  sourceEl.selectionStart = sourceEl.selectionEnd = caret;
+  sourceEl.dispatchEvent(new Event('input', { bubbles: true }));
+  sourceEl.focus();
+}
+
+// Palette click. The 8 winds carry data-kind="wind" (set in the
+// HTML by data-dx/data-dy living between -1 and +1 not both zero
+// in practice); ≫ ≪ and · don't navigate, they just insert.
+//
+// In INSERT, clicking a wind drops the glyph at the cursor, switches
+// back to NORMAL, and advances the cursor in the wind's direction
+// — so the user "draws the path" by chaining clicks.
+//
+// In NORMAL, clicking a wind just moves the cursor in that
+// direction (no insertion). The other glyphs still insert, since
+// you can't type ≫ ≪ on a keyboard.
 document.querySelectorAll('.glyph-btn').forEach((btn) => {
   btn.addEventListener('click', () => {
     const glyph = btn.dataset.glyph;
-    const start = sourceEl.selectionStart;
-    const end = sourceEl.selectionEnd;
-    const v = sourceEl.value;
-    sourceEl.value = v.slice(0, start) + glyph + v.slice(end);
-    const caret = start + glyph.length;
-    sourceEl.selectionStart = sourceEl.selectionEnd = caret;
-    sourceEl.dispatchEvent(new Event('input', { bubbles: true }));
-    sourceEl.focus();
+    const dx = parseInt(btn.dataset.dx ?? '0', 10);
+    const dy = parseInt(btn.dataset.dy ?? '0', 10);
+    const isWind = (dx !== 0 || dy !== 0) && glyph !== '≫' && glyph !== '≪';
+    if (isWind) {
+      if (editorMode === 'insert') {
+        insertAtCursor(glyph);
+        // After insertAtCursor, cursor is +1 column from where we
+        // were. The wind's destination is +(dx, dy) from that
+        // pre-insert position, i.e. (dx-1, dy) from the new cursor.
+        moveBy(dx - 1, dy);
+        setEditorMode('normal');
+      } else {
+        moveBy(dx, dy);
+      }
+    } else {
+      // ≫ ≪ · always insert at the cursor, mode unchanged.
+      insertAtCursor(glyph);
+    }
   });
+});
+
+modeToggleBtn.addEventListener('click', () => {
+  setEditorMode(editorMode === 'normal' ? 'insert' : 'normal');
 });
 
 sourceEl.addEventListener('input', scheduleHashWrite);
 
 sourceEl.addEventListener('keydown', (e) => {
+  // Ctrl/Cmd+Enter runs the program from any mode.
   if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
     e.preventDefault();
     handleRun();
+    return;
+  }
+
+  if (editorMode === 'normal') {
+    // Block raw typing — the textarea is in nav mode.
+    if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      e.preventDefault();
+      switch (e.key) {
+        // hjkl + yubn: 3×3 rogue-like compass.
+        //
+        //    y k u      ↖ ↑ ↗
+        //    h   l  =   ←   →
+        //    b j n      ↙ ↓ ↘
+        case 'h': moveBy(-1,  0); break;
+        case 'j': moveBy( 0,  1); break;
+        case 'k': moveBy( 0, -1); break;
+        case 'l': moveBy( 1,  0); break;
+        case 'y': moveBy(-1, -1); break;
+        case 'u': moveBy( 1, -1); break;
+        case 'b': moveBy(-1,  1); break;
+        case 'n': moveBy( 1,  1); break;
+        // Line edges
+        case '0': {
+          const { row } = cursorRowCol();
+          moveTo(row, 0);
+          break;
+        }
+        case '$': {
+          const { row } = cursorRowCol();
+          const lines = sourceEl.value.split('\n');
+          moveTo(row, lines[row].length);
+          break;
+        }
+        // Mode entries
+        case 'i': setEditorMode('insert'); break;
+        case 'a': moveBy(1, 0); setEditorMode('insert'); break;
+        case 'o': {
+          const { row } = cursorRowCol();
+          const lines = sourceEl.value.split('\n');
+          lines.splice(row + 1, 0, '');
+          sourceEl.value = lines.join('\n');
+          sourceEl.dispatchEvent(new Event('input', { bubbles: true }));
+          moveTo(row + 1, 0);
+          setEditorMode('insert');
+          break;
+        }
+        case 'O': {
+          const { row } = cursorRowCol();
+          const lines = sourceEl.value.split('\n');
+          lines.splice(row, 0, '');
+          sourceEl.value = lines.join('\n');
+          sourceEl.dispatchEvent(new Event('input', { bubbles: true }));
+          moveTo(row, 0);
+          setEditorMode('insert');
+          break;
+        }
+        // Delete current cell — replace with space so the column
+        // index of everything to the right is preserved.
+        case 'x': {
+          const { row, col } = cursorRowCol();
+          const lines = sourceEl.value.split('\n');
+          if (col < lines[row].length) {
+            lines[row] = lines[row].slice(0, col) + ' ' + lines[row].slice(col + 1);
+            sourceEl.value = lines.join('\n');
+            sourceEl.dispatchEvent(new Event('input', { bubbles: true }));
+            moveTo(row, col);
+          }
+          break;
+        }
+      }
+    } else if (e.key === 'ArrowUp')    { e.preventDefault(); moveBy( 0, -1); }
+    else if (e.key === 'ArrowDown')    { e.preventDefault(); moveBy( 0,  1); }
+    else if (e.key === 'ArrowLeft')    { e.preventDefault(); moveBy(-1,  0); }
+    else if (e.key === 'ArrowRight')   { e.preventDefault(); moveBy( 1,  0); }
+  } else {
+    // INSERT
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      setEditorMode('normal');
+    } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      // Auto-pad vertical navigation in INSERT too — the whole
+      // point of this editor is that 2D navigation feels first-class.
+      e.preventDefault();
+      moveBy(0, e.key === 'ArrowDown' ? 1 : -1);
+    }
+    // Other keys fall through to native textarea behavior.
   }
 });
 

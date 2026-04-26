@@ -8,6 +8,43 @@ The crate on crates.io is `windy-lang`; the language and the installed
 binary are both `windy`. References to "the crate" below always mean
 `windy-lang` v$X.Y.Z`.
 
+## [Unreleased]
+
+### Added
+
+- **Vim-style modal editor** in the playground. The source
+  textarea now starts in **NORMAL** (a small badge above the
+  editor labels the current mode); first-time visitors who only
+  pick an example and hit Run/Debug never notice. Power users
+  hit `i` to enter INSERT and type, `Esc` to return.
+  - **NORMAL keybindings**: `hjkl` + `yubn` for the eight winds
+    (rogue-like 3×3 compass), `0` / `$` for line edges, `i` /
+    `a` / `o` / `O` to enter INSERT, `x` to blank a cell, arrow
+    keys for navigation. Every nav move auto-pads the destination
+    row with spaces, so moving "down past the end of a short
+    line" lands at the same column instead of dumping the cursor
+    at column 0.
+  - **Glyph palette + mode interaction**: clicking a wind glyph in
+    INSERT inserts it, switches back to NORMAL, and advances the
+    cursor in that wind's direction — so the user "draws the
+    path" by chaining clicks. In NORMAL, the same click just
+    navigates (no insert). `≫` `≪` `·` always insert (you can't
+    type them on a keyboard) without changing mode.
+  - **Mobile**: a small `i / Esc` toggle button next to the mode
+    badge replaces the missing physical Esc key.
+- **`docs/esolangs-wiki.md`** — MediaWiki-syntax draft of the
+  esolangs.org wiki entry, bracketed with begin/end markers so
+  the upload procedure (paste between markers into
+  https://esolangs.org/wiki/Windy) is self-explanatory.
+- **`examples/add.wnd`** — minimal stdin demo: `&&+.@` reads two
+  decimal integers, prints their sum.
+
+### Fixed
+
+- **Glyph palette click**: source textarea regained focus after
+  insertion (was the existing behavior; preserved through the
+  modal editor refactor).
+
 ## [2.0.0] — 2026-04-26
 
 Breaking-change cut. Removes the v0.4 legacy gate, tightens the

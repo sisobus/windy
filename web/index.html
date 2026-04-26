@@ -50,24 +50,28 @@
 
   <main>
     <section class="editor-section">
-      <label for="source">Source</label>
-      <div class="glyph-palette" aria-label="Insert hard-to-type glyphs">
+      <div class="editor-header">
+        <label for="source">Source</label>
+        <span id="mode-badge" class="mode-badge mode-normal" title="Press i to insert, Esc to return">NORMAL</span>
+        <button type="button" id="btn-mode-toggle" class="mode-toggle" title="Toggle NORMAL / INSERT (i / Esc)">i</button>
+        <span class="hint mode-hint">hjkl move · yubn diagonals · i insert · Esc back</span>
+      </div>
+      <div class="glyph-palette" aria-label="Insert / navigate winds">
         <div class="glyph-compass" role="group" aria-label="Eight winds">
-          <button type="button" class="glyph-btn" data-glyph="↖" title="MOVE_NW">↖</button>
-          <button type="button" class="glyph-btn" data-glyph="↑" title="MOVE_N (alias ^)">↑</button>
-          <button type="button" class="glyph-btn" data-glyph="↗" title="MOVE_NE">↗</button>
-          <button type="button" class="glyph-btn" data-glyph="←" title="MOVE_W (alias <)">←</button>
-          <button type="button" class="glyph-btn" data-glyph="·" title="NOP (U+00B7)">·</button>
-          <button type="button" class="glyph-btn" data-glyph="→" title="MOVE_E (alias >)">→</button>
-          <button type="button" class="glyph-btn" data-glyph="↙" title="MOVE_SW">↙</button>
-          <button type="button" class="glyph-btn" data-glyph="↓" title="MOVE_S (alias v)">↓</button>
-          <button type="button" class="glyph-btn" data-glyph="↘" title="MOVE_SE">↘</button>
+          <button type="button" class="glyph-btn" data-glyph="↖" data-dx="-1" data-dy="-1" title="↖ NW (NORMAL: nav · INSERT: insert+nav)">↖</button>
+          <button type="button" class="glyph-btn" data-glyph="↑" data-dx="0" data-dy="-1" title="↑ N">↑</button>
+          <button type="button" class="glyph-btn" data-glyph="↗" data-dx="1" data-dy="-1" title="↗ NE">↗</button>
+          <button type="button" class="glyph-btn" data-glyph="←" data-dx="-1" data-dy="0" title="← W">←</button>
+          <button type="button" class="glyph-btn" data-glyph="·" data-dx="0" data-dy="0" title="· NOP (insert only)">·</button>
+          <button type="button" class="glyph-btn" data-glyph="→" data-dx="1" data-dy="0" title="→ E">→</button>
+          <button type="button" class="glyph-btn" data-glyph="↙" data-dx="-1" data-dy="1" title="↙ SW">↙</button>
+          <button type="button" class="glyph-btn" data-glyph="↓" data-dx="0" data-dy="1" title="↓ S">↓</button>
+          <button type="button" class="glyph-btn" data-glyph="↘" data-dx="1" data-dy="1" title="↘ SE">↘</button>
         </div>
         <div class="glyph-extras" role="group" aria-label="Wind speed">
-          <button type="button" class="glyph-btn" data-glyph="≫" title="GUST (speed += 1)">≫</button>
-          <button type="button" class="glyph-btn" data-glyph="≪" title="CALM (speed -= 1)">≪</button>
+          <button type="button" class="glyph-btn" data-glyph="≫" data-dx="1" data-dy="0" title="≫ GUST (insert + nav E)">≫</button>
+          <button type="button" class="glyph-btn" data-glyph="≪" data-dx="1" data-dy="0" title="≪ CALM (insert + nav E)">≪</button>
         </div>
-        <span class="hint glyph-hint">click to insert at cursor</span>
       </div>
       <textarea id="source" spellcheck="false" autocapitalize="off" autocorrect="off"></textarea>
 
