@@ -554,6 +554,100 @@ Things to try
   routing fall apart — the labyrinth depends on the speed.
 `,
 
+  main: `           ↘
+        →→→↘→↘
+    ~ →↗    " →·↘
+ ~~  ↗sisobusY   ↓ ~*
+  ↗ ↗ →:#,_↘  D  ·  ↙
+    ↑  ↖  →t←  " ↓
+ ~* ↑←  ↖←"WIN"←←↙
+      ↖·←     ↙·← ~↙
+         ↖←←·←
+
+
+sisobus
+----------------------------------------------------------------------
+Wind-tunnel showpiece. Outputs the language's own name —
+\`WINDY\` — by routing one IP through 8-direction diagonals,
+two string-mode segments, and a horizontal print loop.
+
+How it reads
+------------
+The IP enters at (0,0) east, NOPs across the empty stretch
+until it hits the ↘ in row 0, then weaves down through the
+diagonals to row 2 where \`"\` opens string mode. The SE
+diagonal picks up \`Y\` (row 3) and \`D\` (row 4) before
+\`"\` closes string mode at row 5.
+
+The IP bounces west via \`←\` redirects, opens string mode
+again at \`"WIN"\` on row 6, picks up N/I/W, then climbs
+back up via \`↖\` redirects to the print loop \`:#,_\` on
+row 4. The loop pops top, prints, repeats — outputting
+W, I, N, D, Y in order.
+
+After the loop exits east, the trailing diagonals + \`t\`
+SPLIT cascade dies off via collision merge inside a few
+ticks.
+
+Things to notice
+----------------
+- The \`sisobus\` watermark on row 3 is purely cosmetic —
+  the IP never visits those cells (decoy column).
+- \`~\` (turbulence) cells are scattered as visual "wind
+  noise" — they're off the IP's path so they never fire.
+- The output is the LANGUAGE NAME itself, hidden inside a
+  layout that visually evokes wind currents.
+`,
+
+  puzzle: `→1.2.3t4.5.6←@
+
+sisobus
+----------------------------------------------------------------------
+Multi-IP "find the password" puzzle. The \`t\` SPLIT spawns
+a child going west; the parent continues east. Each side
+pushes digits and prints them. After bouncing off \`←\` and
+\`→\` the two IPs converge on the \`t\` cell and merge with
+direction sum (0,0) → both die, halting the program. The
+trailing \`@\` is dead code.
+
+Output: 1 2 4 3 5 2 6 1 5 2
+
+Tick-by-tick
+------------
+P = parent, C = child.
+
+  t   P                            C                         output
+  --  ---------------------------  -----------------------   ------
+   1  (0)  → east
+   2  (1)  push 1
+   3  (2)  . print 1                                          1
+   4  (3)  push 2
+   5  (4)  . print 2                                          2
+   6  (5)  push 3
+   7  (6)  t SPLIT — C at (5) west, empty stack
+   8  (7)  push 4 → P[3,4]         (5) push 3 → C[3]
+   9  (8)  . print 4               (4) . print 3              4 3
+  10  (9)  push 5 → P[3,5]         (3) push 2 → C[2]
+  11  (10) . print 5               (2) . print 2              5 2
+  12  (11) push 6                  (1) push 1
+  13  (12) ← west                  (0) → east
+  14  (11) push 6                  (1) push 1
+  15  (10) . print 6               (2) . print 1              6 1
+  16  (9)  push 5                  (3) push 2
+  17  (8)  . print 5               (4) . print 2              5 2
+  18  (7)  push, move w → (6)      (5) push, move e → (6)     ← collision
+
+T18 종료 시점에 P와 C가 동시에 \`t\` 셀(6)에 도달 →
+direction (-1,0) + (1,0) = (0,0) → 둘 다 die → halt.
+
+Things to try
+-------------
+- Step under Debug. Watch the stack count drop from 2 to 0 at
+  the collision tick.
+- Change \`t\` to a digit and observe how Befunge-style single
+  IP would behave instead.
+`,
+
   blank: '',
 };
 

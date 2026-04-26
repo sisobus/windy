@@ -69,6 +69,20 @@ binary are both `windy`. References to "the crate" below always mean
   single IP through a labyrinth of diagonals to print
   `The wind speed is 1.` and halt cleanly. Picker entry added
   to the playground.
+- **`examples/main.wnd`** — wind-tunnel showpiece written by
+  the user. Outputs `WINDY` (the language's own name) by
+  routing one IP through 8-direction diagonals, two
+  string-mode segments (`"DY"` and `"WIN"`), and a horizontal
+  print loop. Decorated with `~` turbulence cells and an
+  embedded `sisobus` watermark. Promoted to the README's
+  hero example, replacing the simpler `hello_winds.wnd` snippet.
+- **`examples/puzzle.wnd`** — multi-IP "find the password"
+  puzzle. `t` SPLIT spawns a child going west; both IPs print
+  digits as they traverse the same row in opposite directions,
+  then merge head-on at the `t` cell. Output:
+  `1 2 4 3 5 2 6 1 5 2`. The trailing `@` is dead code — halt
+  comes purely from the collision merge `(0,0)` direction-die.
+  Picker entries added for both.
 
 ### Fixed
 

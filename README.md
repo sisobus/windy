@@ -9,14 +9,20 @@
 **Try it in your browser:** **[windy.sisobus.com](https://windy.sisobus.com)**
 
 ```
-"!dlroW ,olleH"↓
-        ↓      ←
-        →:#,_@
+           ↘
+        →→→↘→↘
+    ~ →↗    " →·↘
+ ~~  ↗sisobusY   ↓ ~*
+  ↗ ↗ →:#,_↘  D  ·  ↙
+    ↑  ↖  →t←  " ↓
+ ~* ↑←  ↖←"WIN"←←↙
+      ↖·←     ↙·← ~↙
+         ↖←←·←
 ```
 
 ```
-$ windy run examples/hello_winds.wnd
-Hello, World!
+$ windy run examples/main.wnd
+WINDY
 ```
 
 The name comes from the Pokémon 윈디 (Arcanine, but read as "windy" in
@@ -211,6 +217,16 @@ windy version
 - `examples/wind_speed.wnd` — `≫` / `≪` gusts route a single
   IP through a labyrinth of diagonals to print
   `The wind speed is 1.` and halt cleanly.
+- `examples/main.wnd` — wind-tunnel showpiece: 8-direction
+  diagonals, `~` turbulence cells, embedded `sisobus`
+  watermark, two string-mode segments (`"DY"` and `"WIN"`), and
+  a horizontal print loop that spells out `WINDY` — the
+  language's own name.
+- `examples/puzzle.wnd` — multi-IP password puzzle. `t` SPLIT
+  spawns a child going west; both IPs print digits as they
+  traverse the same row in opposite directions, then merge
+  head-on at the `t` cell to halt. The trailing `@` is dead
+  code — halt comes from the collision merge.
 
 ## Browser playground
 
