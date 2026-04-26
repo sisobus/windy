@@ -90,6 +90,12 @@ header h1 {
   font: inherit;
 }
 
+/* Cap the picker so a long option label can't blow the toolbar
+   row open. The dropdown itself still renders the full label
+   in browsers that honor option width — only the closed select
+   is constrained. */
+.toolbar select { max-width: 18rem; }
+
 .toolbar input[type="number"] { width: 9em; }
 
 /* Force a wrap inside flex toolbars so anything after the
