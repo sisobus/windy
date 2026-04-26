@@ -51,6 +51,24 @@
   <main>
     <section class="editor-section">
       <label for="source">Source</label>
+      <div class="glyph-palette" aria-label="Insert hard-to-type glyphs">
+        <div class="glyph-compass" role="group" aria-label="Eight winds">
+          <button type="button" class="glyph-btn" data-glyph="↖" title="MOVE_NW">↖</button>
+          <button type="button" class="glyph-btn" data-glyph="↑" title="MOVE_N (alias ^)">↑</button>
+          <button type="button" class="glyph-btn" data-glyph="↗" title="MOVE_NE">↗</button>
+          <button type="button" class="glyph-btn" data-glyph="←" title="MOVE_W (alias <)">←</button>
+          <button type="button" class="glyph-btn" data-glyph="·" title="NOP (U+00B7)">·</button>
+          <button type="button" class="glyph-btn" data-glyph="→" title="MOVE_E (alias >)">→</button>
+          <button type="button" class="glyph-btn" data-glyph="↙" title="MOVE_SW">↙</button>
+          <button type="button" class="glyph-btn" data-glyph="↓" title="MOVE_S (alias v)">↓</button>
+          <button type="button" class="glyph-btn" data-glyph="↘" title="MOVE_SE">↘</button>
+        </div>
+        <div class="glyph-extras" role="group" aria-label="Wind speed">
+          <button type="button" class="glyph-btn" data-glyph="≫" title="GUST (speed += 1)">≫</button>
+          <button type="button" class="glyph-btn" data-glyph="≪" title="CALM (speed -= 1)">≪</button>
+        </div>
+        <span class="hint glyph-hint">click to insert at cursor</span>
+      </div>
       <textarea id="source" spellcheck="false" autocapitalize="off" autocorrect="off"></textarea>
 
       <label for="stdin">stdin <span class="hint">(consumed by <code>?</code> / <code>&amp;</code>; snapshotted when Debug starts)</span></label>

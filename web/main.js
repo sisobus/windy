@@ -841,6 +841,25 @@ continueBtn.addEventListener('click', doContinue);
 restartBtn.addEventListener('click', restartDebug);
 exitDebugBtn.addEventListener('click', exitDebug);
 
+// Click-to-insert glyph palette. The compass + extras buttons all
+// carry their glyph in `data-glyph`; one delegated handler drops
+// the glyph at the cursor in #source, fires an `input` event so
+// the URL hash updates, and refocuses the textarea so the caret
+// stays visible.
+document.querySelectorAll('.glyph-btn').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const glyph = btn.dataset.glyph;
+    const start = sourceEl.selectionStart;
+    const end = sourceEl.selectionEnd;
+    const v = sourceEl.value;
+    sourceEl.value = v.slice(0, start) + glyph + v.slice(end);
+    const caret = start + glyph.length;
+    sourceEl.selectionStart = sourceEl.selectionEnd = caret;
+    sourceEl.dispatchEvent(new Event('input', { bubbles: true }));
+    sourceEl.focus();
+  });
+});
+
 sourceEl.addEventListener('input', scheduleHashWrite);
 
 sourceEl.addEventListener('keydown', (e) => {

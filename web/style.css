@@ -154,6 +154,60 @@ main {
 
 .hint { color: var(--muted); font-weight: normal; font-size: 0.8em; }
 
+/* Click-to-insert palette for the glyphs that aren't on a keyboard
+   (the diagonals ↗ ↘ ↙ ↖ and the speed ops ≫ ≪). Sits above the
+   source textarea; each button drops its glyph at the cursor. */
+.glyph-palette {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.4rem 0.5rem;
+  margin-bottom: 0.4rem;
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.glyph-compass {
+  display: grid;
+  grid-template-columns: repeat(3, auto);
+  gap: 2px;
+}
+
+.glyph-extras {
+  display: flex;
+  gap: 2px;
+}
+
+.glyph-btn {
+  width: 1.9em;
+  height: 1.9em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 1.05rem;
+  line-height: 1;
+  /* Same anti-double-tap-zoom treatment as the toolbar buttons. */
+  touch-action: manipulation;
+}
+.glyph-btn:hover, .glyph-btn:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent);
+  outline: none;
+}
+.glyph-btn:active {
+  background: var(--panel-bg);
+}
+
+.glyph-hint { margin-left: auto; }
+
 #source {
   width: 100%;
   min-height: 340px;
