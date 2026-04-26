@@ -43,9 +43,10 @@ binary are both `windy`. References to "the crate" below always mean
     the caret one column east (a real problem the user hit while
     editing 2D source — type one character at column 4 and
     everything at column 5+ slides east, breaking aligned
-    layouts). Backspace in INSERT steps the cursor one cell
-    against the flow direction without deleting; to clear a
-    cell, overwrite it with space.
+    layouts). Backspace in INSERT clears the cell one step against
+    the flow direction (replaces it with a space) and parks the
+    cursor on that cell, ready to retype — the way every other
+    text editor's backspace behaves, but in 2D.
   - **Mobile**: a small `i / Esc` toggle button next to the mode
     badge replaces the missing physical Esc key.
 - **`docs/esolangs-wiki.md`** — MediaWiki-syntax draft of the
@@ -54,12 +55,27 @@ binary are both `windy`. References to "the crate" below always mean
   https://esolangs.org/wiki/Windy) is self-explanatory.
 - **`examples/add.wnd`** — minimal stdin demo: `&&+.@` reads two
   decimal integers, prints their sum.
+- **`examples/sum_winds.wnd`** — diagonal-cascade calculator.
+  Three winds carry the digits 4, 5, 6 down stair-stepped paths
+  into a `+ +` adder chain on the left edge, print 15, and halt
+  by IP collision merge — no `@` in the source. Picker entry
+  added to the playground.
+- **`examples/hi_windy.wnd`** — meandering wind paths with a
+  `t` SPLIT thread string-mode chunks (`"Y`, `"HD`, `iN`,
+  `,I`, `W`) onto the stack and print them in order to spell
+  `Hi, WINDY`. Halts by IP collision merge. Picker entry added
+  to the playground.
 
 ### Fixed
 
 - **Glyph palette click**: source textarea regained focus after
   insertion (was the existing behavior; preserved through the
   modal editor refactor).
+- **Mobile auto-zoom on textarea focus**. iOS Safari zooms into
+  any focused input with `font-size < 16px`; the source and
+  stdin textareas were 14px / 13px on desktop and the page
+  jumped on every tap. The mobile breakpoint now overrides
+  both to 16px — desktop sizes are unchanged.
 
 ## [2.0.0] — 2026-04-26
 

@@ -201,6 +201,13 @@ windy version
 - `examples/winds.wnd` — four `t` splits in a row, peaking at
   five simultaneous IPs descending in parallel. Each halts at
   its own `@`. No printing; pure multi-IP exhibit.
+- `examples/sum_winds.wnd` — winds carry digits 4, 5, 6 down a
+  diagonal cascade into a `+` chain, print 15, then collide to
+  halt. Calculator without an `@`.
+- `examples/hi_windy.wnd` — meandering wind paths with a `t`
+  SPLIT thread string-mode chunks (`"Y`, `"HD`, `iN`, `,I`,
+  `W`) onto the stack and print them in order to spell
+  `Hi, WINDY`.
 
 ## Browser playground
 

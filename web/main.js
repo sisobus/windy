@@ -447,6 +447,75 @@ const EXAMPLES = {
     space. Each child crosses ten of those rows.
 `,
 
+  sum_winds: `→→→↘
+→.↘ ↘
++  ↘ ↘
+↑   t 4
+ ↖   ↖ ↓
+  +    5
+   ↖←←6←
+
+sisobus
+----------------------------------------------------------------------
+Three winds carry the digits 4, 5, 6 down a diagonal cascade,
+flow into a \`+\` chain, print 15, and halt by colliding head-on.
+No \`@\` in the source — the merge pass cancels the survivors.
+
+How it reads
+------------
+Row 0 launches an east-bound IP that bends south-east at \`↘\`.
+A \`t\` (SPLIT) sits on row 3 next to a literal \`4\`. The split
+spawns a westbound child carrying 4; the parent keeps falling,
+picks up \`5\` on row 5, then \`6\` on row 6 (which then redirects
+west via \`←\`). Each digit travels along its own ↖ diagonal
+back into the \`+ +\` adders on the left edge. The sum 15 lands
+on \`.\` at row 1 and is printed. Surviving IPs collide on the
+horizontal channel and the merge clips the program closed.
+
+Things to try
+-------------
+- Step under Debug. Watch \`ips:\` climb past 1 as \`t\` fires
+  and drop back to 0 at the final collision.
+- Edit one of the digits. The output should track the new sum.
+`,
+
+  hi_windy: `→→→→→→↘
+  ↙←←← →→↘
+ ↓    ↖←←←"
+ ↘        "Y
+  ↘ →:#,_↘ HD
+   # ↖    ↘ iN
+    ↗↑     t ,I
+     ↑      ↖  W
+               ""
+                ↖←
+
+sisobus
+----------------------------------------------------------------------
+Spells \`Hi, WINDY\` by threading meandering wind paths
+through string-mode chunks and a \`t\` SPLIT.
+
+How it reads
+------------
+The right-hand column is a stack of string-mode fragments
+(\`"Y\`, \`"HD\`, \`iN\`, \`,I\`, \`W\`, \`""\`). The IP enters
+each fragment between \`"\` toggles, pushing the chars onto
+its stack as Windy code points. \`t\` spawns a second IP that
+walks the lower diagonals and merges the printing path with
+the gathering path. The print loop on the upper rim
+(\`:#,_\`) pops and prints one character per orbit until the
+stack drains; the program halts by IP collision merge — no
+\`@\` in the source.
+
+Things to try
+-------------
+- Step under Debug. Watch the stack stretch as each \`"…"\`
+  fragment is consumed, then drain one cell at a time
+  through the print loop.
+- Swap a letter inside one of the string-mode chunks and
+  rerun to see the output mutate accordingly.
+`,
+
   blank: '',
 };
 
@@ -1067,12 +1136,26 @@ sourceEl.addEventListener('keydown', (e) => {
       e.preventDefault();
       moveBy(0, e.key === 'ArrowDown' ? 1 : -1);
     } else if (e.key === 'Backspace') {
-      // 2D-grid backspace: step the cursor one cell against the
-      // current flow direction. No deletion — the user can
-      // overwrite the cell with space (or any other glyph) by
-      // typing on top of it.
+      // 2D-grid backspace: clear the cell one step against the
+      // current flow direction (replace with space) and move the
+      // cursor onto that cleared cell, ready to retype.
       e.preventDefault();
-      moveBy(-editorDirection.dx, -editorDirection.dy);
+      const { row, col } = cursorRowCol();
+      const targetRow = row - editorDirection.dy;
+      const targetCol = col - editorDirection.dx;
+      if (targetRow >= 0 && targetCol >= 0) {
+        const lines = sourceEl.value.split('\n');
+        if (targetRow < lines.length
+            && targetCol < lines[targetRow].length) {
+          lines[targetRow] =
+            lines[targetRow].slice(0, targetCol)
+            + ' '
+            + lines[targetRow].slice(targetCol + 1);
+          sourceEl.value = lines.join('\n');
+          sourceEl.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        moveTo(targetRow, targetCol);
+      }
     } else if (e.key.length === 1
                && !e.ctrlKey && !e.metaKey && !e.altKey) {
       // OVERWRITE typing: replace the cell under the cursor with
