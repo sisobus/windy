@@ -35,11 +35,17 @@ binary are both `windy`. References to "the crate" below always mean
     user clicked `↓` (cursor stepped south, INSERT preserved),
     subsequent typed characters in INSERT also flow south — each
     keystroke drops the character and steps the cursor south,
-    not east. Default direction is east, matching plain
-    textarea behavior; when direction is east, IME composition
-    (Korean etc.) goes through the textarea unmodified. A small
-    direction-indicator badge next to the mode badge shows the
-    current flow glyph (→ ↓ ↘ ...).
+    not east. A small direction-indicator badge next to the mode
+    badge shows the current flow glyph (→ ↓ ↘ ...).
+  - **2D-grid OVERWRITE typing**. Typing in INSERT now replaces
+    the cell under the cursor instead of the textarea's native
+    insert-and-shift, which would push every cell to the right of
+    the caret one column east (a real problem the user hit while
+    editing 2D source — type one character at column 4 and
+    everything at column 5+ slides east, breaking aligned
+    layouts). Backspace in INSERT steps the cursor one cell
+    against the flow direction without deleting; to clear a
+    cell, overwrite it with space.
   - **Mobile**: a small `i / Esc` toggle button next to the mode
     badge replaces the missing physical Esc key.
 - **`docs/esolangs-wiki.md`** — MediaWiki-syntax draft of the

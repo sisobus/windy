@@ -923,13 +923,22 @@ function moveBy(dx, dy) {
   moveTo(row + dy, col + dx);
 }
 
+// 2D-grid OVERWRITE: replace the single cell at the cursor with
+// `glyph` (rather than the textarea's default insert-and-shift),
+// then advance the cursor one cell east. If the cursor is past
+// end-of-line, pad with spaces first so the glyph lands at the
+// requested column. Multi-codepoint glyphs (e.g. emoji) are
+// treated as one cell — only one UTF-16 unit is replaced, so we
+// stick to BMP single-char glyphs in practice.
 function insertAtCursor(glyph) {
-  const start = sourceEl.selectionStart;
-  const end = sourceEl.selectionEnd;
-  const v = sourceEl.value;
-  sourceEl.value = v.slice(0, start) + glyph + v.slice(end);
-  const caret = start + glyph.length;
-  sourceEl.selectionStart = sourceEl.selectionEnd = caret;
+  const { row, col } = cursorRowCol();
+  const lines = sourceEl.value.split('\n');
+  while (lines.length <= row) lines.push('');
+  while (lines[row].length < col) lines[row] += ' ';
+  lines[row] = lines[row].slice(0, col) + glyph + lines[row].slice(col + 1);
+  sourceEl.value = lines.join('\n');
+  const pos = rowColToOffset(lines, row, col + 1);
+  sourceEl.selectionStart = sourceEl.selectionEnd = pos;
   sourceEl.dispatchEvent(new Event('input', { bubbles: true }));
   sourceEl.focus();
 }
@@ -1057,18 +1066,33 @@ sourceEl.addEventListener('keydown', (e) => {
       // point of this editor is that 2D navigation feels first-class.
       e.preventDefault();
       moveBy(0, e.key === 'ArrowDown' ? 1 : -1);
+    } else if (e.key === 'Backspace') {
+      // 2D-grid backspace: step the cursor one cell against the
+      // current flow direction. No deletion — the user can
+      // overwrite the cell with space (or any other glyph) by
+      // typing on top of it.
+      e.preventDefault();
+      moveBy(-editorDirection.dx, -editorDirection.dy);
     } else if (e.key.length === 1
-               && !e.ctrlKey && !e.metaKey && !e.altKey
-               && (editorDirection.dx !== 1 || editorDirection.dy !== 0)) {
-      // Non-east typing: handle ourselves so each character lands
-      // on the next cell along the user's flow direction (last set
-      // by a palette click). When the direction is the default
-      // east, fall through to native textarea — that keeps IME
-      // composition (Korean, etc.) working unbothered for the
-      // common case.
+               && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      // OVERWRITE typing: replace the cell under the cursor with
+      // the typed character, then advance one cell along the flow
+      // direction. We always intercept here (even when direction is
+      // east), because the textarea's default insert-and-shift
+      // would push every cell on the right of the caret one column
+      // east — exactly the bug the user reported.
+      //
+      // IME composition (Korean, etc.) ends up routed through this
+      // handler too. Since Windy programs are dominantly ASCII +
+      // arrows, OVERWRITE is the right default; users typing
+      // multi-byte text in a Windy comment will need to step out
+      // of INSERT first (Esc → edit elsewhere → paste).
       e.preventDefault();
       insertAtCursor(e.key);
-      moveBy(editorDirection.dx - 1, editorDirection.dy);
+      // insertAtCursor advanced one cell east; nudge to (dx, dy).
+      if (editorDirection.dx !== 1 || editorDirection.dy !== 0) {
+        moveBy(editorDirection.dx - 1, editorDirection.dy);
+      }
     }
     // Other keys fall through to native textarea behavior.
   }
