@@ -50,9 +50,14 @@ binary are both `windy`. References to "the crate" below always mean
   - **Mobile**: a small `i / Esc` toggle button next to the mode
     badge replaces the missing physical Esc key.
 - **`docs/esolangs-wiki.md`** — MediaWiki-syntax draft of the
-  esolangs.org wiki entry, bracketed with begin/end markers so
-  the upload procedure (paste between markers into
-  https://esolangs.org/wiki/Windy) is self-explanatory.
+  esolangs.org wiki entry, focused on Windy's own spec and
+  distinguishing features (eight winds, wind speed, multi-IP
+  collision merge, BigInt throughout, sparse bi-infinite grid,
+  tick-determinism, Turing completeness sketch). Bracketed
+  with begin/end markers and a self-contained upload procedure
+  for posting at https://esolangs.org/wiki/Windy. No
+  comparisons to other languages — the entry stands on the
+  language's own merits.
 - **`examples/add.wnd`** — minimal stdin demo: `&&+.@` reads two
   decimal integers, prints their sum.
 - **`examples/sum_winds.wnd`** — diagonal-cascade calculator.
