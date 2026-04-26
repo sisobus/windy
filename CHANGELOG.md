@@ -24,14 +24,13 @@ binary are both `windy`. References to "the crate" below always mean
     row with spaces, so moving "down past the end of a short
     line" lands at the same column instead of dumping the cursor
     at column 0.
-  - **Glyph palette**: clicking a wind glyph (in either mode)
-    inserts it at the cursor and advances the cursor in that
-    wind's direction. Chain the clicks and you "draw the IP's
-    path" — each click drops the wind glyph and moves to where
-    that wind would carry the IP next. If the click happened in
-    INSERT mode, it also flips back to NORMAL afterwards so the
-    next click navigates instead of typing. `≫` `≪` `·` insert
-    + step east one cell, mode unchanged.
+  - **Glyph palette**: clicking a wind glyph inserts it at the
+    cursor and advances the cursor in that wind's direction —
+    the same in both modes. Chain the clicks and you "draw the
+    IP's path"; each click drops a wind and moves to where the
+    wind would carry the IP next. The current mode is preserved
+    across clicks so the keyboard context never silently changes.
+    `≫` `≪` `·` insert + step east one cell.
   - **Mobile**: a small `i / Esc` toggle button next to the mode
     badge replaces the missing physical Esc key.
 - **`docs/esolangs-wiki.md`** — MediaWiki-syntax draft of the

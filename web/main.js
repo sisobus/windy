@@ -914,16 +914,16 @@ function insertAtCursor(glyph) {
   sourceEl.focus();
 }
 
-// Palette click. Universal rule: drop the glyph at the cursor,
-// then advance the cursor in that wind's direction (so chaining
-// clicks "draws the IP's path" by laying down winds and moving
-// to where each wind would carry the IP next). If we were in
-// INSERT mode, snap back to NORMAL so the next click navigates
-// cleanly.
+// Palette click. Universal rule, independent of NORMAL / INSERT:
+// drop the glyph at the cursor, then advance the cursor in that
+// wind's direction. Chaining the clicks "draws the IP's path"
+// — each click lays down a wind and moves to where that wind
+// would carry the IP next. The current mode is preserved, so
+// the user's keyboard context is never silently altered.
 //
 // `≫` / `≪` / `·` carry data-dx="1" data-dy="0" — they have no
 // meaningful direction, but defaulting to one cell east lets the
-// caret keep flowing east-to-west like normal typing would.
+// caret keep flowing west-to-east like normal typing.
 document.querySelectorAll('.glyph-btn').forEach((btn) => {
   btn.addEventListener('click', () => {
     const glyph = btn.dataset.glyph;
@@ -935,9 +935,6 @@ document.querySelectorAll('.glyph-btn').forEach((btn) => {
     // so the delta from current caret is (dx-1, dy).
     if (dx !== 1 || dy !== 0) {
       moveBy(dx - 1, dy);
-    }
-    if (editorMode === 'insert') {
-      setEditorMode('normal');
     }
   });
 });
