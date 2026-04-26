@@ -76,6 +76,21 @@ binary are both `windy`. References to "the crate" below always mean
   stdin textareas were 14px / 13px on desktop and the page
   jumped on every tap. The mobile breakpoint now overrides
   both to 16px — desktop sizes are unchanged.
+- **Palette operator clicks (`≫` `≪` `·`) follow the current
+  flow direction**. They previously carried `data-dx="1"
+  data-dy="0"` for caret default, which made every click step
+  east AND reset the flow direction east — clicking ≫ in the
+  middle of laying down a southbound trail yanked the caret
+  east. The three operator buttons now have no `data-dx` /
+  `data-dy`; the click handler treats them as direction-less
+  (insert + step in current flow, leave flow unchanged).
+- **Space key advances the caret in 2D**. SPACE was either
+  silently swallowed (NORMAL — `e.preventDefault` ran with no
+  matching `case`) or destructively overwrote the cell with
+  a literal space (INSERT). Both modes now treat SPACE as a
+  "skip past this cell" — one step along the current flow
+  direction, contents untouched. To explicitly blank a cell,
+  use `x` in NORMAL.
 
 ## [2.0.0] — 2026-04-26
 

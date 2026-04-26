@@ -1019,24 +1019,32 @@ function insertAtCursor(glyph) {
 // would carry the IP next. The current mode is preserved, so
 // the user's keyboard context is never silently altered.
 //
-// `≫` / `≪` / `·` carry data-dx="1" data-dy="0" — they have no
-// meaningful direction, but defaulting to one cell east lets the
-// caret keep flowing west-to-east like normal typing.
+// Two button kinds:
+//   - Wind (↖↑↗←→↙↓↘): carries data-dx / data-dy. Click sets the
+//     editor flow direction to that wind and steps the caret one
+//     cell along it.
+//   - Operator (≫ ≪ ·): has no direction. Click follows the
+//     CURRENT flow direction and leaves it unchanged — clicking
+//     ≫ while the user is laying down a southbound trail must
+//     not yank the caret east.
 document.querySelectorAll('.glyph-btn').forEach((btn) => {
   btn.addEventListener('click', () => {
     const glyph = btn.dataset.glyph;
-    const dx = parseInt(btn.dataset.dx ?? '0', 10);
-    const dy = parseInt(btn.dataset.dy ?? '0', 10);
+    const isWind = btn.dataset.dx !== undefined;
+    const dx = isWind ? parseInt(btn.dataset.dx, 10) : editorDirection.dx;
+    const dy = isWind ? parseInt(btn.dataset.dy, 10) : editorDirection.dy;
     insertAtCursor(glyph);
     // insertAtCursor leaves the caret +1 east of the original
-    // position; the wind destination is +(dx, dy) east-and-south,
-    // so the delta from current caret is (dx-1, dy).
+    // position; the destination is +(dx, dy), so the delta from
+    // current caret is (dx-1, dy).
     if (dx !== 1 || dy !== 0) {
       moveBy(dx - 1, dy);
     }
-    // Remember the direction so subsequent INSERT typing flows the
-    // same way the user just clicked.
-    setEditorDirection(dx, dy);
+    // Wind clicks update the flow direction; operator clicks keep
+    // whatever direction the user was already laying down.
+    if (isWind) {
+      setEditorDirection(dx, dy);
+    }
   });
 });
 
@@ -1072,6 +1080,11 @@ sourceEl.addEventListener('keydown', (e) => {
         case 'u': moveBy( 1, -1); break;
         case 'b': moveBy(-1,  1); break;
         case 'n': moveBy( 1,  1); break;
+        // Space: skip one cell along the current flow direction
+        // without touching the cell's contents. Lets the user lay
+        // down a wind, click ahead a few cells of empty space they
+        // already drew, and resume placing characters past them.
+        case ' ': moveBy(editorDirection.dx, editorDirection.dy); break;
         // Line edges
         case '0': {
           const { row } = cursorRowCol();
@@ -1156,6 +1169,14 @@ sourceEl.addEventListener('keydown', (e) => {
         }
         moveTo(targetRow, targetCol);
       }
+    } else if (e.key === ' ') {
+      // Space in INSERT is "skip" — advance the caret one cell
+      // along the flow direction without touching the cell.
+      // Overwriting an existing glyph with a literal space here
+      // would silently destroy the user's work; if they really
+      // want a blank cell they can use `x` in NORMAL mode.
+      e.preventDefault();
+      moveBy(editorDirection.dx, editorDirection.dy);
     } else if (e.key.length === 1
                && !e.ctrlKey && !e.metaKey && !e.altKey) {
       // OVERWRITE typing: replace the cell under the cursor with
