@@ -258,6 +258,8 @@ See [`web/README.md`](web/README.md) for build and deployment notes.
 - **[CHANGELOG.md](CHANGELOG.md)** — release history.
 - **[CLAUDE.md](CLAUDE.md)** — development context for AI
   pair-programming.
+- **[esolangs.org/wiki/Windy](https://esolangs.org/wiki/Windy)** —
+  community wiki entry.
 
 ## Testing
 

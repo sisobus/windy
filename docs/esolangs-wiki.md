@@ -1,45 +1,32 @@
 <!--
-  Draft of the esolangs.org wiki entry for Windy.
+  Source-of-truth draft for the esolangs.org wiki entry.
 
-  esolangs.org runs MediaWiki, so the body below uses MediaWiki
-  syntax — '''bold''', [[InternalLink]], [https://url label],
-  <pre>...</pre>, {{infobox proglang|...}}, [[Category:...]] tags.
+  PUBLISHED: https://esolangs.org/wiki/Windy
 
-  Note: <syntaxhighlight> is NOT used because the extension is
-  flaky on esolangs.org for many language hints. Plain <pre>
-  works everywhere and is what most existing entries use anyway.
+  This file is kept here for two reasons:
+   - Local diff history (the wiki itself stores edits server-side
+     with their own MediaWiki history, but having a copy in git
+     means the source-controlled record matches what's live).
+   - Future edits: change the body below first, review with
+     `git diff`, then paste the result back into the wiki's
+     "Edit source" box.
 
-  ==============================================================
-  HOW TO UPLOAD (you've already signed up)
-  ==============================================================
+  Format notes:
+   - MediaWiki syntax: '''bold''', [[InternalLink]],
+     [https://url label], <pre>...</pre>, {{infobox proglang|...}},
+     [[Category:...]] tags.
+   - <syntaxhighlight> is NOT used — the extension is flaky on
+     esolangs.org for many language hints. <pre> works everywhere
+     and is what most existing entries use.
 
-  1. Go to https://esolangs.org/wiki/Windy
-     (if the page doesn't exist yet, MediaWiki will offer a
-      "Create the page Windy on this wiki!" link.)
-
-  2. Click "Create" / "create this page" / "edit source".
-
-  3. Copy everything BETWEEN the `=== begin wiki ===` and
-     `=== end wiki ===` markers below — NOT the HTML comments.
-
-  4. Paste into the wiki edit box.
-
-  5. (Optional) Fill in the "Summary" field with something like
-     "Initial entry for Windy v2.0".
-
-  6. Hit "Show preview" to verify the infobox / tables / pre
-     blocks render.
-
-  7. Hit "Publish page".
-
-  8. The page now lives at https://esolangs.org/wiki/Windy and
-     is auto-listed under each [[Category:...]] tag at the
-     bottom (2026, Two-dimensional languages, Stack-based,
-     Concurrent, Turing complete, Unicode).
-
-  After publishing, you may also want to:
-   - Add "Windy" to https://esolangs.org/wiki/Language_list
-     under "W" (manual alphabetical insertion).
+  When updating the live wiki:
+   1. Edit the body below.
+   2. Go to https://esolangs.org/wiki/Windy → "Edit source".
+   3. Replace the wiki contents with everything BETWEEN the
+      `=== begin wiki ===` and `=== end wiki ===` markers.
+   4. Fill the "Summary" with what changed (e.g. "fix typo",
+      "add example").
+   5. Show preview, then Publish page.
 
 === begin wiki ===
 -->

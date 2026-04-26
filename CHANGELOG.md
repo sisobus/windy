@@ -49,15 +49,18 @@ binary are both `windy`. References to "the crate" below always mean
     text editor's backspace behaves, but in 2D.
   - **Mobile**: a small `i / Esc` toggle button next to the mode
     badge replaces the missing physical Esc key.
-- **`docs/esolangs-wiki.md`** — MediaWiki-syntax draft of the
-  esolangs.org wiki entry, focused on Windy's own spec and
-  distinguishing features (eight winds, wind speed, multi-IP
-  collision merge, BigInt throughout, sparse bi-infinite grid,
-  tick-determinism, Turing completeness sketch). Bracketed
-  with begin/end markers and a self-contained upload procedure
-  for posting at https://esolangs.org/wiki/Windy. No
-  comparisons to other languages — the entry stands on the
-  language's own merits.
+- **`docs/esolangs-wiki.md`** — MediaWiki-syntax source for
+  the esolangs.org wiki entry, focused on Windy's own spec
+  and distinguishing features (eight winds, wind speed,
+  multi-IP collision merge, BigInt throughout, sparse
+  bi-infinite grid, tick-determinism, Turing-completeness
+  sketch). Bracketed with begin/end markers; the body
+  between them is the canonical source — to update the
+  live wiki, edit this file and paste the result back into
+  https://esolangs.org/wiki/Windy.
+- **esolangs.org wiki entry published** at
+  https://esolangs.org/wiki/Windy. README's Documentation
+  section now links to it.
 - **`examples/add.wnd`** — minimal stdin demo: `&&+.@` reads two
   decimal integers, prints their sum.
 - **`examples/sum_winds.wnd`** — diagonal-cascade calculator.
