@@ -851,8 +851,27 @@ exitDebugBtn.addEventListener('click', exitDebug);
 // `Esc` to navigate.
 
 const modeBadge = $('mode-badge');
+const dirIndicator = $('dir-indicator');
 const modeToggleBtn = $('btn-mode-toggle');
 let editorMode = 'normal';
+// Current typing direction. Default east (1, 0) — same as a normal
+// textarea's left-to-right caret advance. A palette click sets
+// this; subsequent typing in INSERT advances each character along
+// (dx, dy). NORMAL doesn't consult it for keyboard nav (hjkl etc.
+// have their own directions), but the indicator stays consistent
+// across mode flips.
+let editorDirection = { dx: 1, dy: 0 };
+
+const WIND_GLYPHS = {
+  '-1,-1': '↖', '0,-1': '↑', '1,-1': '↗',
+  '-1,0':  '←',               '1,0':  '→',
+  '-1,1':  '↙', '0,1':  '↓', '1,1':  '↘',
+};
+
+function setEditorDirection(dx, dy) {
+  editorDirection = { dx, dy };
+  dirIndicator.textContent = WIND_GLYPHS[`${dx},${dy}`] ?? '·';
+}
 
 function setEditorMode(next) {
   editorMode = next;
@@ -863,6 +882,7 @@ function setEditorMode(next) {
   document.body.classList.toggle('mode-insert', next === 'insert');
 }
 setEditorMode('normal');
+setEditorDirection(1, 0);
 
 // 1D textarea offset ↔ (row, col) helpers, with auto-padding moves.
 function cursorRowCol() {
@@ -936,6 +956,9 @@ document.querySelectorAll('.glyph-btn').forEach((btn) => {
     if (dx !== 1 || dy !== 0) {
       moveBy(dx - 1, dy);
     }
+    // Remember the direction so subsequent INSERT typing flows the
+    // same way the user just clicked.
+    setEditorDirection(dx, dy);
   });
 });
 
@@ -1034,6 +1057,18 @@ sourceEl.addEventListener('keydown', (e) => {
       // point of this editor is that 2D navigation feels first-class.
       e.preventDefault();
       moveBy(0, e.key === 'ArrowDown' ? 1 : -1);
+    } else if (e.key.length === 1
+               && !e.ctrlKey && !e.metaKey && !e.altKey
+               && (editorDirection.dx !== 1 || editorDirection.dy !== 0)) {
+      // Non-east typing: handle ourselves so each character lands
+      // on the next cell along the user's flow direction (last set
+      // by a palette click). When the direction is the default
+      // east, fall through to native textarea — that keeps IME
+      // composition (Korean, etc.) working unbothered for the
+      // common case.
+      e.preventDefault();
+      insertAtCursor(e.key);
+      moveBy(editorDirection.dx - 1, editorDirection.dy);
     }
     // Other keys fall through to native textarea behavior.
   }

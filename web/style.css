@@ -188,6 +188,23 @@ main {
   border: 1px solid color-mix(in oklab, #2da44e 60%, transparent);
 }
 
+/* Current typing direction badge — updated by palette clicks.
+   In INSERT this also drives where each typed character lands. */
+.dir-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6em;
+  height: 1.6em;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--accent);
+  border: 1px solid color-mix(in oklab, var(--accent) 40%, transparent);
+  border-radius: 3px;
+  background: color-mix(in oklab, var(--accent) 8%, transparent);
+}
+
 .mode-toggle {
   font-size: 0.75rem;
   padding: 0.15rem 0.5rem;

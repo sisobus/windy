@@ -31,6 +31,15 @@ binary are both `windy`. References to "the crate" below always mean
     wind would carry the IP next. The current mode is preserved
     across clicks so the keyboard context never silently changes.
     `≫` `≪` `·` insert + step east one cell.
+  - **Typing direction follows the last palette click**. If the
+    user clicked `↓` (cursor stepped south, INSERT preserved),
+    subsequent typed characters in INSERT also flow south — each
+    keystroke drops the character and steps the cursor south,
+    not east. Default direction is east, matching plain
+    textarea behavior; when direction is east, IME composition
+    (Korean etc.) goes through the textarea unmodified. A small
+    direction-indicator badge next to the mode badge shows the
+    current flow glyph (→ ↓ ↘ ...).
   - **Mobile**: a small `i / Esc` toggle button next to the mode
     badge replaces the missing physical Esc key.
 - **`docs/esolangs-wiki.md`** — MediaWiki-syntax draft of the
