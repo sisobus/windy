@@ -648,6 +648,60 @@ Things to try
   IP would behave instead.
 `,
 
+  puzzle_hard: `→1.2.3t4.5t6.7←@
+
+sisobus
+----------------------------------------------------------------------
+Asymmetric multi-IP puzzle with TWO \`t\` SPLITs and FOUR live
+IPs that pairwise collide.
+
+Layout: 5 cells west of the first \`t\` and 8 cells east of it
+(including the second \`t\` at col 10). Asymmetric — east is
+longer than west — yet the program halts cleanly via a chain
+of head-on collisions.
+
+Output: 1 2 4 3 2 6 5 1 7 4
+
+Cells
+-----
+  col:  0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15
+  char: → 1 . 2 . 3 t 4 . 5 t  6  .  7  ←  @
+
+IP zoo
+------
+P  — original parent, starts (0,0) east.
+C₁ — spawned at t₁ (col 6) when P passes east, goes west.
+C₂ — spawned at t₂ (col 10) when P passes east, goes west.
+C₃ — spawned at t₁ (col 6) when C₂ passes west, goes east.
+
+Highlights
+----------
+- T7  : P hits t₁, spawns C₁.
+- T11 : P hits t₂, spawns C₂.
+- T15 : C₂ (going west) hits t₁ AGAIN, spawns C₃.
+- T16 : C₁ and C₂ collide at (4,0). Direction sum (0,0) → die.
+- T18 : P and C₃ collide at (10,0). Direction sum (0,0) → die.
+- After T18: zero live IPs → halt.
+
+Things to notice
+----------------
+- Both \`t\` cells fire exactly twice each (once by P initially,
+  once by another IP later). The IPs collide JUST BEFORE
+  re-executing them, so no cascade.
+- The asymmetry only works because the spacing satisfies
+  t₂ - t₁ = ← - t₂ = 4 cells. Random asymmetric layouts
+  cascade infinitely.
+- Trace this in the step debugger. Watch \`ips:\` climb 1 → 2
+  → 3 → 4 then drop 4 → 2 → 0 across the two collision ticks.
+- Compare to easier \`puzzle.wnd\` (1 t, 2 IPs, symmetric)
+  — same number of prints but the trace effort is much higher
+  with 4 simultaneous IPs.
+
+Befunge equivalent
+------------------
+Impossible. Befunge has no SPLIT, no collision merge.
+`,
+
   blank: '',
 };
 

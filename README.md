@@ -227,6 +227,13 @@ windy version
   traverse the same row in opposite directions, then merge
   head-on at the `t` cell to halt. The trailing `@` is dead
   code — halt comes from the collision merge.
+- `examples/puzzle_hard.wnd` — same flavor but **asymmetric**
+  layout with TWO `t` SPLITs spawning four IPs total. The IPs
+  pairwise collide at two different cells (col 4 and col 10),
+  both with direction sum `(0,0)` so all four die. The
+  spacing `t₂ - t₁ = ← - t₂` is what makes the asymmetric
+  timing land cleanly — random asymmetric layouts cascade
+  infinitely. Output: `1 2 4 3 2 6 5 1 7 4`.
 
 ## Browser playground
 

@@ -83,6 +83,13 @@ binary are both `windy`. References to "the crate" below always mean
   `1 2 4 3 5 2 6 1 5 2`. The trailing `@` is dead code — halt
   comes purely from the collision merge `(0,0)` direction-die.
   Picker entries added for both.
+- **`examples/puzzle_hard.wnd`** — asymmetric variant with
+  TWO `t` SPLITs and FOUR live IPs. Layout `→1.2.3t4.5t6.7←@`
+  has 5 cells west of t₁ and 8 cells east — the structure is
+  asymmetric in length, yet halts cleanly because the spacing
+  `t₂−t₁ = ←−t₂ = 4` engineers two pairwise collisions
+  `(0,0)` at distinct cells (col 4 and col 10). Output:
+  `1 2 4 3 2 6 5 1 7 4`. Picker entry added.
 
 ### Fixed
 
