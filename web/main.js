@@ -1149,34 +1149,39 @@ sourceEl.addEventListener('keydown', (e) => {
       e.preventDefault();
       moveBy(0, e.key === 'ArrowDown' ? 1 : -1);
     } else if (e.key === 'Backspace') {
-      // 2D-grid backspace: clear the cell one step against the
-      // current flow direction (replace with space) and move the
-      // cursor onto that cleared cell, ready to retype.
+      // 2D-grid backspace: undo the last typed cell. The "last
+      // typed" is one step opposite the flow direction (cursor
+      // already advanced past it after typing). Two corrections
+      // for the west / north edges: when the cursor was clamped
+      // during the post-type move (typing at col=0 going west,
+      // for instance), it's now sitting on top of the typed
+      // glyph rather than one step ahead of it, so the opposite
+      // cell is empty and the glyph that needs deleting is the
+      // one under the caret. We detect that as "opposite-cell is
+      // blank but the caret's cell holds a glyph" and clear the
+      // caret's cell in that case.
       e.preventDefault();
       const { row, col } = cursorRowCol();
-      const targetRow = row - editorDirection.dy;
-      const targetCol = col - editorDirection.dx;
-      if (targetRow >= 0 && targetCol >= 0) {
-        const lines = sourceEl.value.split('\n');
-        if (targetRow < lines.length
-            && targetCol < lines[targetRow].length) {
-          lines[targetRow] =
-            lines[targetRow].slice(0, targetCol)
-            + ' '
-            + lines[targetRow].slice(targetCol + 1);
-          sourceEl.value = lines.join('\n');
-          sourceEl.dispatchEvent(new Event('input', { bubbles: true }));
-        }
-        moveTo(targetRow, targetCol);
+      const targetRow = Math.max(0, row - editorDirection.dy);
+      const targetCol = Math.max(0, col - editorDirection.dx);
+      const lines = sourceEl.value.split('\n');
+      const cellAt = (r, c) =>
+        (r < lines.length && c < lines[r].length) ? lines[r][c] : ' ';
+      const clearCell = (r, c) => {
+        if (r >= lines.length) return;
+        if (c >= lines[r].length) return;
+        lines[r] = lines[r].slice(0, c) + ' ' + lines[r].slice(c + 1);
+      };
+      const oppositeBlank = cellAt(targetRow, targetCol) === ' ';
+      const cursorHasGlyph = cellAt(row, col) !== ' ';
+      if (oppositeBlank && cursorHasGlyph) {
+        clearCell(row, col);
+      } else {
+        clearCell(targetRow, targetCol);
       }
-    } else if (e.key === ' ') {
-      // Space in INSERT is "skip" — advance the caret one cell
-      // along the flow direction without touching the cell.
-      // Overwriting an existing glyph with a literal space here
-      // would silently destroy the user's work; if they really
-      // want a blank cell they can use `x` in NORMAL mode.
-      e.preventDefault();
-      moveBy(editorDirection.dx, editorDirection.dy);
+      sourceEl.value = lines.join('\n');
+      sourceEl.dispatchEvent(new Event('input', { bubbles: true }));
+      moveTo(targetRow, targetCol);
     } else if (e.key.length === 1
                && !e.ctrlKey && !e.metaKey && !e.altKey) {
       // OVERWRITE typing: replace the cell under the cursor with

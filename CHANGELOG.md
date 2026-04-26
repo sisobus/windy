@@ -84,13 +84,22 @@ binary are both `windy`. References to "the crate" below always mean
   east. The three operator buttons now have no `data-dx` /
   `data-dy`; the click handler treats them as direction-less
   (insert + step in current flow, leave flow unchanged).
-- **Space key advances the caret in 2D**. SPACE was either
-  silently swallowed (NORMAL — `e.preventDefault` ran with no
-  matching `case`) or destructively overwrote the cell with
-  a literal space (INSERT). Both modes now treat SPACE as a
-  "skip past this cell" — one step along the current flow
-  direction, contents untouched. To explicitly blank a cell,
-  use `x` in NORMAL.
+- **Space key navigation in NORMAL mode**. Pressing SPACE was
+  silently swallowed (`e.preventDefault` ran with no matching
+  `case`). NORMAL now treats SPACE as a step along the current
+  flow direction, matching the rest of the navigation keys.
+  INSERT keeps the standard typing behavior — SPACE writes a
+  literal space and advances along the flow direction, just
+  like any other character.
+- **2D Backspace at edges of grid (e.g., typing at col 0
+  going west)**. The cursor's post-type move is clamped to
+  `col >= 0`, so after dropping a glyph at column 0 going
+  west the caret ends up *on top of* the glyph rather than
+  one step ahead of it. Backspace's "clear opposite cell"
+  rule then erased an empty cell instead of the glyph. The
+  handler now falls back to clearing the cell under the caret
+  whenever the opposite cell is blank but the caret is on a
+  glyph — covers all four corner-edge typing directions.
 
 ## [2.0.0] — 2026-04-26
 
