@@ -914,37 +914,30 @@ function insertAtCursor(glyph) {
   sourceEl.focus();
 }
 
-// Palette click. The 8 winds carry data-kind="wind" (set in the
-// HTML by data-dx/data-dy living between -1 and +1 not both zero
-// in practice); ≫ ≪ and · don't navigate, they just insert.
+// Palette click. Universal rule: drop the glyph at the cursor,
+// then advance the cursor in that wind's direction (so chaining
+// clicks "draws the IP's path" by laying down winds and moving
+// to where each wind would carry the IP next). If we were in
+// INSERT mode, snap back to NORMAL so the next click navigates
+// cleanly.
 //
-// In INSERT, clicking a wind drops the glyph at the cursor, switches
-// back to NORMAL, and advances the cursor in the wind's direction
-// — so the user "draws the path" by chaining clicks.
-//
-// In NORMAL, clicking a wind just moves the cursor in that
-// direction (no insertion). The other glyphs still insert, since
-// you can't type ≫ ≪ on a keyboard.
+// `≫` / `≪` / `·` carry data-dx="1" data-dy="0" — they have no
+// meaningful direction, but defaulting to one cell east lets the
+// caret keep flowing east-to-west like normal typing would.
 document.querySelectorAll('.glyph-btn').forEach((btn) => {
   btn.addEventListener('click', () => {
     const glyph = btn.dataset.glyph;
     const dx = parseInt(btn.dataset.dx ?? '0', 10);
     const dy = parseInt(btn.dataset.dy ?? '0', 10);
-    const isWind = (dx !== 0 || dy !== 0) && glyph !== '≫' && glyph !== '≪';
-    if (isWind) {
-      if (editorMode === 'insert') {
-        insertAtCursor(glyph);
-        // After insertAtCursor, cursor is +1 column from where we
-        // were. The wind's destination is +(dx, dy) from that
-        // pre-insert position, i.e. (dx-1, dy) from the new cursor.
-        moveBy(dx - 1, dy);
-        setEditorMode('normal');
-      } else {
-        moveBy(dx, dy);
-      }
-    } else {
-      // ≫ ≪ · always insert at the cursor, mode unchanged.
-      insertAtCursor(glyph);
+    insertAtCursor(glyph);
+    // insertAtCursor leaves the caret +1 east of the original
+    // position; the wind destination is +(dx, dy) east-and-south,
+    // so the delta from current caret is (dx-1, dy).
+    if (dx !== 1 || dy !== 0) {
+      moveBy(dx - 1, dy);
+    }
+    if (editorMode === 'insert') {
+      setEditorMode('normal');
     }
   });
 });
