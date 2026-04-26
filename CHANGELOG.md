@@ -65,6 +65,10 @@ binary are both `windy`. References to "the crate" below always mean
   `,I`, `W`) onto the stack and print them in order to spell
   `Hi, WINDY`. Halts by IP collision merge. Picker entry added
   to the playground.
+- **`examples/wind_speed.wnd`** — `≫` / `≪` gusts route a
+  single IP through a labyrinth of diagonals to print
+  `The wind speed is 1.` and halt cleanly. Picker entry added
+  to the playground.
 
 ### Fixed
 

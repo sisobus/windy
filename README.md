@@ -208,6 +208,9 @@ windy version
   SPLIT thread string-mode chunks (`"Y`, `"HD`, `iN`, `,I`,
   `W`) onto the stack and print them in order to spell
   `Hi, WINDY`.
+- `examples/wind_speed.wnd` — `≫` / `≪` gusts route a single
+  IP through a labyrinth of diagonals to print
+  `The wind speed is 1.` and halt cleanly.
 
 ## Browser playground
 

@@ -516,6 +516,44 @@ Things to try
   rerun to see the output mutate accordingly.
 `,
 
+  wind_speed: `→→→→→→→→↘
+↓"is 1."←≫
+"↘       ↖
+ "→" "↘   ↖↘
+dw     ↘   ↖
+ei→:#,_↓↓  ↑ ↓
+en↑    ↙"  ↑
+pd↑   ↙ e  ↑ ≪
+s ·  t  h  ↑ ↙
+""↑ ↗   T   ↖
+→↑ ↖←←←←"
+        ↖
+
+sisobus
+----------------------------------------------------------------------
+\`≫\` / \`≪\` gusts route a single IP through a labyrinth of
+diagonals to print \`The wind speed is 1.\` and halt cleanly.
+
+How it reads
+------------
+The text \`The wind speed is 1.\` is laid out as a stack of
+string-mode fragments along the source's columns and rows.
+The IP weaves through them, toggling string mode (\`"\`) on
+and off so that the *labelled* bytes get pushed onto the
+stack while the wind glyphs in between merely steer the
+flow. \`≫\` accelerates the IP across the empty stretches in
+the right column so the round trip lines up with the print
+loop on row 5 (\`:#,_\`).
+
+Things to try
+-------------
+- Step under Debug. Watch the stack stretch as each \`"…"\`
+  fragment is consumed, then drain through the \`:#,_\`
+  rotor on row 5.
+- Drop a \`≪\` somewhere along the fast stretch to see the
+  routing fall apart — the labyrinth depends on the speed.
+`,
+
   blank: '',
 };
 
