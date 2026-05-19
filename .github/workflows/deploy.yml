@@ -85,11 +85,14 @@ jobs:
             --exclude "README.md" \
             --exclude ".*" \
             --exclude "*.wasm" \
-            --exclude "aria/*"
+            --exclude "aria/*" \
+            --exclude "coin/*"
           # `aria/*` 는 windy-aria repo의 자체 deploy.yml이 관리한다
           # (windy.sisobus.com/aria 로 배포되는 sonification 도구).
-          # 여기서 --delete 가 그 prefix를 건드리면 다음 windy-aria 배포
-          # 전까지 /aria 가 비어버린다.
+          # `coin/*` 는 windy-coin repo의 자체 deploy.yml이 관리한다
+          # (windy.sisobus.com/coin 으로 배포되는 WNDY 토큰 트로피 사이트).
+          # 여기서 --delete 가 두 prefix 중 하나를 건드리면 해당 자매
+          # repo의 다음 배포 전까지 그 경로가 비어버린다.
 
       - name: Upload .wasm files with application/wasm Content-Type
         run: |
