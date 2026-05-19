@@ -7,7 +7,12 @@
   --accent: #2463eb;
   --border: #ddd;
   --pre-bg: #f4f4f4;
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* Same JetBrains Mono baseline as windy.sisobus.com/coin/ — the
+     trilogy (lang / aria / coin) shares one typographic identity.
+     Loaded via the <link> in index.html. */
+  font-family: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+  font-feature-settings: "calt" 1, "ss01" 1, "zero" 1;
+  font-variant-ligatures: contextual;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -138,7 +143,7 @@ header h1 {
   margin-left: auto;
   color: var(--muted);
   font-size: 0.8rem;
-  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-family: inherit;
 }
 
 main {
@@ -202,7 +207,7 @@ main {
   justify-content: center;
   width: 1.6em;
   height: 1.6em;
-  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-family: inherit;
   font-size: 0.95rem;
   font-weight: 600;
   color: var(--accent);
@@ -294,7 +299,7 @@ main {
   width: 100%;
   min-height: 340px;
   padding: 0.6rem;
-  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-family: inherit;
   font-size: 14px;
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -321,7 +326,7 @@ body.mode-insert #source {
 #stdin {
   width: 100%;
   padding: 0.5rem;
-  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-family: inherit;
   font-size: 13px;
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -358,13 +363,13 @@ body.mode-insert #source {
 }
 
 #exit-code {
-  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-family: inherit;
 }
 
 .panel pre {
   margin: 0;
   padding: 0.6rem 0.8rem;
-  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-family: inherit;
   font-size: 13px;
   white-space: pre-wrap;
   word-break: break-word;
@@ -381,7 +386,7 @@ footer {
 }
 
 code {
-  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-family: inherit;
   background: var(--pre-bg);
   padding: 0 0.2em;
   border-radius: 3px;
@@ -401,7 +406,7 @@ code {
 .panel-wide { grid-column: 1 / -1; }
 
 .grid-view {
-  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-family: inherit;
   font-size: 13px;
   line-height: 1.25;
   white-space: pre;
@@ -439,7 +444,7 @@ code {
 #state-view {
   margin: 0;
   padding: 0.5rem 0.8rem;
-  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-family: inherit;
   font-size: 13px;
   display: grid;
   grid-template-columns: auto 1fr;
@@ -456,7 +461,7 @@ code {
 }
 
 #stack-view {
-  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-family: inherit;
   font-size: 13px;
   overflow: auto;
   max-height: 260px;
@@ -580,7 +585,7 @@ code {
 }
 
 .opcode-table td:nth-child(3) {
-  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-family: inherit;
   font-size: 0.8rem;
   white-space: nowrap;
   width: 7.5em;
